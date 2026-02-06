@@ -1,0 +1,2348 @@
+{
+  "metadata": {
+    "generated_at": "2026-01-23T22:25:06.725178",
+    "total_users": 30,
+    "format_version": "1.0"
+  },
+  "personas": {
+    "user_988804598394707968": {
+      "persona": {
+        "identity": {
+          "username": "LeafChronicle",
+          "age_band": "25-34",
+          "gender": "unknown",
+          "location": {
+            "country": "United States",
+            "region_city": "unknown"
+          },
+          "profession": "unknown",
+          "domain_of_expertise": [
+            "social movements",
+            "racial justice"
+          ]
+        },
+        "psychometrics": {
+          "personality": {
+            "big_five": {
+              "O": 0.5,
+              "C": 0.5,
+              "E": 0.5,
+              "A": 0.5,
+              "N": 0.5
+            }
+          },
+          "values": {
+            "moral_foundations": {
+              "care": 0.5,
+              "fairness": 0.727,
+              "loyalty": 0.5,
+              "authority": 0.5,
+              "sanctity": 0.5
+            }
+          }
+        },
+        "social_status": {
+          "influence_tier": "ordinary_user",
+          "economic_band": "unknown",
+          "social_capital": {
+            "network_size_proxy": 0
+          }
+        },
+        "behavior_profile": {
+          "posting_cadence": {
+            "posts_per_day": 0.0,
+            "diurnal_pattern": [
+              "evening"
+            ]
+          },
+          "rhetoric_style": {
+            "civility": 1.0,
+            "evidence_citation": 0.5
+          }
+        },
+        "cognitive_state": {
+          "core_affect": {
+            "sentiment": "angry",
+            "arousal": 0.0
+          },
+          "issue_stances": [
+            {
+              "topic": "BlackLivesMatter",
+              "support": 1.0,
+              "certainty": 0.5
+            }
+          ]
+        }
+      },
+      "metadata": {
+        "generated_at": "2026-01-23 22:19:37",
+        "user_id": "user_988804598394707968",
+        "username": "@LeafChronicle",
+        "tweet_count": 1
+      }
+    },
+    "user_2678618421": {
+      "persona": {
+        "identity": {
+          "username": "@MikkiChandler",
+          "age_band": "25-34",
+          "gender": "female",
+          "location": {
+            "country": "USA",
+            "region_city": "unknown"
+          },
+          "profession": "activist|social_worker|academia",
+          "domain_of_expertise": [
+            "social movements",
+            "racial justice",
+            "gender equality"
+          ]
+        },
+        "psychometrics": {
+          "personality": {
+            "big_five": {
+              "O": 0.5,
+              "C": 0.5,
+              "E": 0.639,
+              "A": 0.5,
+              "N": 0.5
+            }
+          },
+          "values": {
+            "moral_foundations": {
+              "care": 0.5,
+              "fairness": 0.5,
+              "loyalty": 0.5,
+              "authority": 0.5,
+              "sanctity": 0.5
+            }
+          }
+        },
+        "social_status": {
+          "influence_tier": "ordinary_user",
+          "economic_band": "unknown",
+          "social_capital": {
+            "network_size_proxy": 1
+          }
+        },
+        "behavior_profile": {
+          "posting_cadence": {
+            "posts_per_day": 0.0001,
+            "diurnal_pattern": [
+              "evening"
+            ]
+          },
+          "rhetoric_style": {
+            "civility": 1.0,
+            "evidence_citation": 0.5
+          }
+        },
+        "cognitive_state": {
+          "core_affect": {
+            "sentiment": "angry",
+            "arousal": 0.0
+          },
+          "issue_stances": [
+            {
+              "topic": "MeToo",
+              "support": 1.0,
+              "certainty": 0.5
+            },
+            {
+              "topic": "BlackLivesMatter",
+              "support": 1.0,
+              "certainty": 0.5
+            }
+          ]
+        }
+      },
+      "metadata": {
+        "generated_at": "2026-01-23 22:20:13",
+        "user_id": "user_2678618421",
+        "username": "@MikkiChandler",
+        "tweet_count": 1
+      }
+    },
+    "user_1161405967260704768": {
+      "persona": {
+        "identity": {
+          "username": "RuthanneSanch12",
+          "age_band": "25-34",
+          "gender": "female",
+          "location": {
+            "country": "United States",
+            "region_city": "unknown"
+          },
+          "profession": "unknown",
+          "domain_of_expertise": [
+            "politics",
+            "social activism"
+          ]
+        },
+        "psychometrics": {
+          "personality": {
+            "big_five": {
+              "O": 0.5,
+              "C": 0.5,
+              "E": 0.67,
+              "A": 0.5,
+              "N": 0.5
+            }
+          },
+          "values": {
+            "moral_foundations": {
+              "care": 0.5,
+              "fairness": 0.5,
+              "loyalty": 0.5,
+              "authority": 0.5,
+              "sanctity": 0.5
+            }
+          }
+        },
+        "social_status": {
+          "influence_tier": "opinion_leader",
+          "economic_band": "unknown",
+          "social_capital": {
+            "network_size_proxy": 4
+          }
+        },
+        "behavior_profile": {
+          "posting_cadence": {
+            "posts_per_day": 0.0,
+            "diurnal_pattern": [
+              "evening"
+            ]
+          },
+          "rhetoric_style": {
+            "civility": 1.0,
+            "evidence_citation": 0.5
+          }
+        },
+        "cognitive_state": {
+          "core_affect": {
+            "sentiment": "angry",
+            "arousal": 0.0
+          },
+          "issue_stances": [
+            {
+              "topic": "Impeach Trump",
+              "support": 1.0,
+              "certainty": 1.0
+            },
+            {
+              "topic": "Political Resistance",
+              "support": 1.0,
+              "certainty": 0.9
+            }
+          ]
+        }
+      },
+      "metadata": {
+        "generated_at": "2026-01-23 22:20:21",
+        "user_id": "user_1161405967260704768",
+        "username": "@RuthanneSanch12",
+        "tweet_count": 1
+      }
+    },
+    "user_1993384785318916096": {
+      "persona": {
+        "identity": {
+          "username": "@ea_fuzz",
+          "age_band": "25-34",
+          "gender": "unknown",
+          "location": {
+            "country": "USA",
+            "region_city": "unknown"
+          },
+          "profession": "unknown",
+          "domain_of_expertise": [
+            "law enforcement",
+            "public safety"
+          ]
+        },
+        "psychometrics": {
+          "personality": {
+            "big_five": {
+              "O": 0.5,
+              "C": 0.609,
+              "E": 0.5,
+              "A": 0.5,
+              "N": 0.5
+            }
+          },
+          "values": {
+            "moral_foundations": {
+              "care": 0.5,
+              "fairness": 0.5,
+              "loyalty": 0.5,
+              "authority": 0.609,
+              "sanctity": 0.5
+            }
+          }
+        },
+        "social_status": {
+          "influence_tier": "opinion_leader",
+          "economic_band": "unknown",
+          "social_capital": {
+            "network_size_proxy": 1
+          }
+        },
+        "behavior_profile": {
+          "posting_cadence": {
+            "posts_per_day": 0.0,
+            "diurnal_pattern": [
+              "evening"
+            ]
+          },
+          "rhetoric_style": {
+            "civility": 1.0,
+            "evidence_citation": 0.5
+          }
+        },
+        "cognitive_state": {
+          "core_affect": {
+            "sentiment": "angry",
+            "arousal": 0.0
+          },
+          "issue_stances": [
+            {
+              "topic": "law enforcement and public safety",
+              "support": 0.7,
+              "certainty": 0.5
+            }
+          ]
+        }
+      },
+      "metadata": {
+        "generated_at": "2026-01-23 22:20:29",
+        "user_id": "user_1993384785318916096",
+        "username": "@ea_fuzz",
+        "tweet_count": 1
+      }
+    },
+    "user_043621c5": {
+      "persona": {
+        "identity": {
+          "username": "unknown_user",
+          "age_band": "unknown",
+          "gender": "unknown",
+          "location": {
+            "country": "unknown",
+            "region_city": "unknown"
+          },
+          "profession": "unknown",
+          "domain_of_expertise": []
+        },
+        "psychometrics": {
+          "personality": {
+            "big_five": {
+              "O": 0.5,
+              "C": 0.5,
+              "E": 0.5,
+              "A": 0.5,
+              "N": 0.5
+            }
+          },
+          "values": {
+            "moral_foundations": {
+              "care": 0.5,
+              "fairness": 0.5,
+              "loyalty": 0.5,
+              "authority": 0.5,
+              "sanctity": 0.5
+            }
+          }
+        },
+        "social_status": {
+          "influence_tier": "ordinary_user",
+          "economic_band": "unknown",
+          "social_capital": {
+            "network_size_proxy": 0
+          }
+        },
+        "behavior_profile": {
+          "posting_cadence": {
+            "posts_per_day": 0.0,
+            "diurnal_pattern": []
+          },
+          "rhetoric_style": {
+            "civility": 0.5,
+            "evidence_citation": 0.5
+          }
+        },
+        "cognitive_state": {
+          "core_affect": {
+            "sentiment": "calm",
+            "arousal": 0.0
+          },
+          "issue_stances": []
+        }
+      },
+      "metadata": {
+        "generated_at": "2026-01-23 22:20:39",
+        "user_id": "user_043621c5",
+        "username": "unknown_user",
+        "tweet_count": 15
+      }
+    },
+    "user_1081299991870795776": {
+      "persona": {
+        "identity": {
+          "username": "@amygamie",
+          "age_band": "25-34",
+          "gender": "female",
+          "location": {
+            "country": "United States",
+            "region_city": "unknown"
+          },
+          "profession": "social activist or community organizer",
+          "domain_of_expertise": [
+            "social movements",
+            "racial justice"
+          ]
+        },
+        "psychometrics": {
+          "personality": {
+            "big_five": {
+              "O": 0.5,
+              "C": 0.5,
+              "E": 0.5,
+              "A": 0.5,
+              "N": 0.5
+            }
+          },
+          "values": {
+            "moral_foundations": {
+              "care": 0.5,
+              "fairness": 0.5,
+              "loyalty": 0.5,
+              "authority": 0.5,
+              "sanctity": 0.5
+            }
+          }
+        },
+        "social_status": {
+          "influence_tier": "opinion_leader",
+          "economic_band": "unknown",
+          "social_capital": {
+            "network_size_proxy": 1
+          }
+        },
+        "behavior_profile": {
+          "posting_cadence": {
+            "posts_per_day": 0.0,
+            "diurnal_pattern": [
+              "evening"
+            ]
+          },
+          "rhetoric_style": {
+            "civility": 1.0,
+            "evidence_citation": 0.5
+          }
+        },
+        "cognitive_state": {
+          "core_affect": {
+            "sentiment": "angry",
+            "arousal": 0.0
+          },
+          "issue_stances": [
+            {
+              "topic": "Black Lives Matter",
+              "support": 1.0,
+              "certainty": 0.5
+            }
+          ]
+        }
+      },
+      "metadata": {
+        "generated_at": "2026-01-23 22:20:48",
+        "user_id": "user_1081299991870795776",
+        "username": "@amygamie",
+        "tweet_count": 1
+      }
+    },
+    "user_989622987883253760": {
+      "persona": {
+        "identity": {
+          "username": "@JSunNews",
+          "age_band": "25-34",
+          "gender": "unknown",
+          "location": {
+            "country": "United States",
+            "region_city": "unknown"
+          },
+          "profession": "journalist|social activist",
+          "domain_of_expertise": [
+            "social movements",
+            "criminal justice",
+            "racial equality"
+          ]
+        },
+        "psychometrics": {
+          "personality": {
+            "big_five": {
+              "O": 0.5,
+              "C": 0.5,
+              "E": 0.5,
+              "A": 0.5,
+              "N": 0.5
+            }
+          },
+          "values": {
+            "moral_foundations": {
+              "care": 0.5,
+              "fairness": 0.727,
+              "loyalty": 0.5,
+              "authority": 0.5,
+              "sanctity": 0.5
+            }
+          }
+        },
+        "social_status": {
+          "influence_tier": "ordinary_user",
+          "economic_band": "unknown",
+          "social_capital": {
+            "network_size_proxy": 0
+          }
+        },
+        "behavior_profile": {
+          "posting_cadence": {
+            "posts_per_day": 0.0,
+            "diurnal_pattern": [
+              "evening"
+            ]
+          },
+          "rhetoric_style": {
+            "civility": 1.0,
+            "evidence_citation": 0.5
+          }
+        },
+        "cognitive_state": {
+          "core_affect": {
+            "sentiment": "angry",
+            "arousal": 0.0
+          },
+          "issue_stances": [
+            {
+              "topic": "Black Lives Matter",
+              "support": 1.0,
+              "certainty": 1.0
+            }
+          ]
+        }
+      },
+      "metadata": {
+        "generated_at": "2026-01-23 22:20:56",
+        "user_id": "user_989622987883253760",
+        "username": "@JSunNews",
+        "tweet_count": 1
+      }
+    },
+    "user_1631200173912211456": {
+      "persona": {
+        "identity": {
+          "username": "@AndreaT2303",
+          "age_band": "25-34",
+          "gender": "female",
+          "location": {
+            "country": "USA",
+            "region_city": "unknown"
+          },
+          "profession": "activist|political_analyst|journalist",
+          "domain_of_expertise": [
+            "politics",
+            "social_justice",
+            "environment"
+          ]
+        },
+        "psychometrics": {
+          "personality": {
+            "big_five": {
+              "O": 0.5,
+              "C": 0.5,
+              "E": 0.56,
+              "A": 0.5,
+              "N": 0.5
+            }
+          },
+          "values": {
+            "moral_foundations": {
+              "care": 0.5,
+              "fairness": 0.5,
+              "loyalty": 0.5,
+              "authority": 0.5,
+              "sanctity": 0.5
+            }
+          }
+        },
+        "social_status": {
+          "influence_tier": "ordinary_user",
+          "economic_band": "unknown",
+          "social_capital": {
+            "network_size_proxy": 0
+          }
+        },
+        "behavior_profile": {
+          "posting_cadence": {
+            "posts_per_day": 0.0,
+            "diurnal_pattern": [
+              "evening"
+            ]
+          },
+          "rhetoric_style": {
+            "civility": 1.0,
+            "evidence_citation": 0.5
+          }
+        },
+        "cognitive_state": {
+          "core_affect": {
+            "sentiment": "angry",
+            "arousal": 0.025
+          },
+          "issue_stances": [
+            {
+              "topic": "StandingRock",
+              "support": 0.8,
+              "certainty": 0.5
+            },
+            {
+              "topic": "BlackLivesMatter",
+              "support": 0.8,
+              "certainty": 0.5
+            },
+            {
+              "topic": "politics",
+              "support": 0.7,
+              "certainty": 0.5
+            }
+          ]
+        }
+      },
+      "metadata": {
+        "generated_at": "2026-01-23 22:21:04",
+        "user_id": "user_1631200173912211456",
+        "username": "@AndreaT2303",
+        "tweet_count": 1
+      }
+    },
+    "user_541395242528677888": {
+      "persona": {
+        "identity": {
+          "username": "@ShomanWright",
+          "age_band": "25-34",
+          "gender": "unknown",
+          "location": {
+            "country": "United States",
+            "region_city": "unknown"
+          },
+          "profession": "unknown",
+          "domain_of_expertise": [
+            "social movements",
+            "racial justice"
+          ]
+        },
+        "psychometrics": {
+          "personality": {
+            "big_five": {
+              "O": 0.5,
+              "C": 0.5,
+              "E": 0.5,
+              "A": 0.5,
+              "N": 0.5
+            }
+          },
+          "values": {
+            "moral_foundations": {
+              "care": 0.5,
+              "fairness": 0.5,
+              "loyalty": 0.5,
+              "authority": 0.5,
+              "sanctity": 0.5
+            }
+          }
+        },
+        "social_status": {
+          "influence_tier": "ordinary_user",
+          "economic_band": "unknown",
+          "social_capital": {
+            "network_size_proxy": 0
+          }
+        },
+        "behavior_profile": {
+          "posting_cadence": {
+            "posts_per_day": 0.0,
+            "diurnal_pattern": [
+              "evening"
+            ]
+          },
+          "rhetoric_style": {
+            "civility": 1.0,
+            "evidence_citation": 0.5
+          }
+        },
+        "cognitive_state": {
+          "core_affect": {
+            "sentiment": "angry",
+            "arousal": 0.0
+          },
+          "issue_stances": [
+            {
+              "topic": "Black Lives Matter",
+              "support": 1.0,
+              "certainty": 1.0
+            }
+          ]
+        }
+      },
+      "metadata": {
+        "generated_at": "2026-01-23 22:21:11",
+        "user_id": "user_541395242528677888",
+        "username": "@ShomanWright",
+        "tweet_count": 1
+      }
+    },
+    "user_801543963865993224": {
+      "persona": {
+        "identity": {
+          "username": "blacklivesbot",
+          "age_band": "unknown",
+          "gender": "unknown",
+          "location": {
+            "country": "unknown",
+            "region_city": "unknown"
+          },
+          "profession": "unknown",
+          "domain_of_expertise": [
+            "social movements",
+            "racial justice"
+          ]
+        },
+        "psychometrics": {
+          "personality": {
+            "big_five": {
+              "O": 0.5,
+              "C": 0.5,
+              "E": 0.5,
+              "A": 0.5,
+              "N": 0.5
+            }
+          },
+          "values": {
+            "moral_foundations": {
+              "care": 0.5,
+              "fairness": 0.5,
+              "loyalty": 0.5,
+              "authority": 0.5,
+              "sanctity": 0.5
+            }
+          }
+        },
+        "social_status": {
+          "influence_tier": "ordinary_user",
+          "economic_band": "unknown",
+          "social_capital": {
+            "network_size_proxy": 0
+          }
+        },
+        "behavior_profile": {
+          "posting_cadence": {
+            "posts_per_day": 0.0,
+            "diurnal_pattern": [
+              "evening"
+            ]
+          },
+          "rhetoric_style": {
+            "civility": 1.0,
+            "evidence_citation": 0.5
+          }
+        },
+        "cognitive_state": {
+          "core_affect": {
+            "sentiment": "angry",
+            "arousal": 0.0
+          },
+          "issue_stances": [
+            {
+              "topic": "blacklivesmatter",
+              "support": 1.0,
+              "certainty": 0.5
+            }
+          ]
+        }
+      },
+      "metadata": {
+        "generated_at": "2026-01-23 22:22:01",
+        "user_id": "user_801543963865993224",
+        "username": "@blacklivesbot",
+        "tweet_count": 1
+      }
+    },
+    "user_924727227534544896": {
+      "persona": {
+        "identity": {
+          "username": "@mikasparkle",
+          "age_band": "25-34",
+          "gender": "female",
+          "location": {
+            "country": "United States",
+            "region_city": "unknown"
+          },
+          "profession": "unknown",
+          "domain_of_expertise": [
+            "social issues",
+            "law enforcement support"
+          ]
+        },
+        "psychometrics": {
+          "personality": {
+            "big_five": {
+              "O": 0.5,
+              "C": 0.5,
+              "E": 0.5,
+              "A": 0.5,
+              "N": 0.5
+            }
+          },
+          "values": {
+            "moral_foundations": {
+              "care": 0.5,
+              "fairness": 0.5,
+              "loyalty": 0.5,
+              "authority": 0.5,
+              "sanctity": 0.5
+            }
+          }
+        },
+        "social_status": {
+          "influence_tier": "opinion_leader",
+          "economic_band": "unknown",
+          "social_capital": {
+            "network_size_proxy": 2
+          }
+        },
+        "behavior_profile": {
+          "posting_cadence": {
+            "posts_per_day": 0.0,
+            "diurnal_pattern": [
+              "evening"
+            ]
+          },
+          "rhetoric_style": {
+            "civility": 1.0,
+            "evidence_citation": 0.5
+          }
+        },
+        "cognitive_state": {
+          "core_affect": {
+            "sentiment": "angry",
+            "arousal": 0.0
+          },
+          "issue_stances": [
+            {
+              "topic": "law enforcement support",
+              "support": 1.0,
+              "certainty": 0.8
+            }
+          ]
+        }
+      },
+      "metadata": {
+        "generated_at": "2026-01-23 22:22:11",
+        "user_id": "user_924727227534544896",
+        "username": "@mikasparkle",
+        "tweet_count": 2
+      }
+    },
+    "user_1978226467570941953": {
+      "persona": {
+        "identity": {
+          "username": "@SSHobbs",
+          "age_band": "25-34",
+          "gender": "unknown",
+          "location": {
+            "country": "USA",
+            "region_city": "unknown"
+          },
+          "profession": "unknown",
+          "domain_of_expertise": [
+            "politics",
+            "social activism"
+          ]
+        },
+        "psychometrics": {
+          "personality": {
+            "big_five": {
+              "O": 0.5,
+              "C": 0.5,
+              "E": 0.647,
+              "A": 0.5,
+              "N": 0.5
+            }
+          },
+          "values": {
+            "moral_foundations": {
+              "care": 0.5,
+              "fairness": 0.5,
+              "loyalty": 0.5,
+              "authority": 0.5,
+              "sanctity": 0.5
+            }
+          }
+        },
+        "social_status": {
+          "influence_tier": "opinion_leader",
+          "economic_band": "unknown",
+          "social_capital": {
+            "network_size_proxy": 2
+          }
+        },
+        "behavior_profile": {
+          "posting_cadence": {
+            "posts_per_day": 0.0001,
+            "diurnal_pattern": [
+              "evening"
+            ]
+          },
+          "rhetoric_style": {
+            "civility": 1.0,
+            "evidence_citation": 0.5
+          }
+        },
+        "cognitive_state": {
+          "core_affect": {
+            "sentiment": "angry",
+            "arousal": 0.0
+          },
+          "issue_stances": [
+            {
+              "topic": "anti-Trump activism",
+              "support": 1.0,
+              "certainty": 0.8
+            },
+            {
+              "topic": "political resistance",
+              "support": 1.0,
+              "certainty": 0.8
+            }
+          ]
+        }
+      },
+      "metadata": {
+        "generated_at": "2026-01-23 22:22:21",
+        "user_id": "user_1978226467570941953",
+        "username": "@SSHobbs",
+        "tweet_count": 1
+      }
+    },
+    "user_1200083856239611904": {
+      "persona": {
+        "identity": {
+          "username": "@PPact",
+          "age_band": "25-34",
+          "gender": "unknown",
+          "location": {
+            "country": "United States",
+            "region_city": "unknown"
+          },
+          "profession": "public health advocate / HIV prevention specialist",
+          "domain_of_expertise": [
+            "public health",
+            "HIV prevention",
+            "community outreach"
+          ]
+        },
+        "psychometrics": {
+          "personality": {
+            "big_five": {
+              "O": 0.5,
+              "C": 0.5,
+              "E": 0.5,
+              "A": 0.5,
+              "N": 0.5
+            }
+          },
+          "values": {
+            "moral_foundations": {
+              "care": 0.5,
+              "fairness": 0.5,
+              "loyalty": 0.5,
+              "authority": 0.5,
+              "sanctity": 0.5
+            }
+          }
+        },
+        "social_status": {
+          "influence_tier": "opinion_leader",
+          "economic_band": "unknown",
+          "social_capital": {
+            "network_size_proxy": 1
+          }
+        },
+        "behavior_profile": {
+          "posting_cadence": {
+            "posts_per_day": 0.0,
+            "diurnal_pattern": [
+              "evening"
+            ]
+          },
+          "rhetoric_style": {
+            "civility": 1.0,
+            "evidence_citation": 0.5
+          }
+        },
+        "cognitive_state": {
+          "core_affect": {
+            "sentiment": "angry",
+            "arousal": 0.0
+          },
+          "issue_stances": [
+            {
+              "topic": "HIV prevention",
+              "support": 1.0,
+              "certainty": 1.0
+            },
+            {
+              "topic": "Black women's health",
+              "support": 1.0,
+              "certainty": 1.0
+            }
+          ]
+        }
+      },
+      "metadata": {
+        "generated_at": "2026-01-23 22:22:29",
+        "user_id": "user_1200083856239611904",
+        "username": "@PPact",
+        "tweet_count": 1
+      }
+    },
+    "user_59870241": {
+      "persona": {
+        "identity": {
+          "username": "@Hedytf",
+          "age_band": "25-34",
+          "gender": "female",
+          "location": {
+            "country": "unknown",
+            "region_city": "unknown"
+          },
+          "profession": "health advocate/activist",
+          "domain_of_expertise": [
+            "public health",
+            "HIV prevention",
+            "social activism"
+          ]
+        },
+        "psychometrics": {
+          "personality": {
+            "big_five": {
+              "O": 0.5,
+              "C": 0.5,
+              "E": 0.5,
+              "A": 0.5,
+              "N": 0.5
+            }
+          },
+          "values": {
+            "moral_foundations": {
+              "care": 0.5,
+              "fairness": 0.5,
+              "loyalty": 0.5,
+              "authority": 0.5,
+              "sanctity": 0.5
+            }
+          }
+        },
+        "social_status": {
+          "influence_tier": "opinion_leader",
+          "economic_band": "unknown",
+          "social_capital": {
+            "network_size_proxy": 1
+          }
+        },
+        "behavior_profile": {
+          "posting_cadence": {
+            "posts_per_day": 0.0,
+            "diurnal_pattern": [
+              "evening"
+            ]
+          },
+          "rhetoric_style": {
+            "civility": 1.0,
+            "evidence_citation": 0.5
+          }
+        },
+        "cognitive_state": {
+          "core_affect": {
+            "sentiment": "angry",
+            "arousal": 0.0
+          },
+          "issue_stances": [
+            {
+              "topic": "BlackWomen",
+              "support": 1.0,
+              "certainty": 1.0
+            },
+            {
+              "topic": "PrEP",
+              "support": 1.0,
+              "certainty": 1.0
+            },
+            {
+              "topic": "HIV prevention",
+              "support": 1.0,
+              "certainty": 1.0
+            }
+          ]
+        }
+      },
+      "metadata": {
+        "generated_at": "2026-01-23 22:22:41",
+        "user_id": "user_59870241",
+        "username": "@Hedytf",
+        "tweet_count": 1
+      }
+    },
+    "user_992253830996754434": {
+      "persona": {
+        "identity": {
+          "username": "TeresaPauley2",
+          "age_band": "25-34",
+          "gender": "female",
+          "location": {
+            "country": "United States",
+            "region_city": "unknown"
+          },
+          "profession": "unknown",
+          "domain_of_expertise": [
+            "politics",
+            "social activism"
+          ]
+        },
+        "psychometrics": {
+          "personality": {
+            "big_five": {
+              "O": 0.5,
+              "C": 0.5,
+              "E": 0.67,
+              "A": 0.5,
+              "N": 0.5
+            }
+          },
+          "values": {
+            "moral_foundations": {
+              "care": 0.5,
+              "fairness": 0.5,
+              "loyalty": 0.5,
+              "authority": 0.5,
+              "sanctity": 0.5
+            }
+          }
+        },
+        "social_status": {
+          "influence_tier": "opinion_leader",
+          "economic_band": "unknown",
+          "social_capital": {
+            "network_size_proxy": 4
+          }
+        },
+        "behavior_profile": {
+          "posting_cadence": {
+            "posts_per_day": 0.0,
+            "diurnal_pattern": [
+              "evening"
+            ]
+          },
+          "rhetoric_style": {
+            "civility": 1.0,
+            "evidence_citation": 0.5
+          }
+        },
+        "cognitive_state": {
+          "core_affect": {
+            "sentiment": "angry",
+            "arousal": 0.0
+          },
+          "issue_stances": [
+            {
+              "topic": "Impeach Trump",
+              "support": 1.0,
+              "certainty": 1.0
+            },
+            {
+              "topic": "Political Resistance",
+              "support": 1.0,
+              "certainty": 1.0
+            }
+          ]
+        }
+      },
+      "metadata": {
+        "generated_at": "2026-01-23 22:22:49",
+        "user_id": "user_992253830996754434",
+        "username": "@TeresaPauley2",
+        "tweet_count": 1
+      }
+    },
+    "user_1607858056951382016": {
+      "persona": {
+        "identity": {
+          "username": "@GinaGinaBoBina_",
+          "age_band": "unknown",
+          "gender": "unknown",
+          "location": {
+            "country": "unknown",
+            "region_city": "unknown"
+          },
+          "profession": "unknown",
+          "domain_of_expertise": []
+        },
+        "psychometrics": {
+          "personality": {
+            "big_five": {
+              "O": 0.5,
+              "C": 0.5,
+              "E": 0.5,
+              "A": 0.5,
+              "N": 0.5
+            }
+          },
+          "values": {
+            "moral_foundations": {
+              "care": 0.5,
+              "fairness": 0.5,
+              "loyalty": 0.5,
+              "authority": 0.5,
+              "sanctity": 0.5
+            }
+          }
+        },
+        "social_status": {
+          "influence_tier": "ordinary_user",
+          "economic_band": "unknown",
+          "social_capital": {
+            "network_size_proxy": 2
+          }
+        },
+        "behavior_profile": {
+          "posting_cadence": {
+            "posts_per_day": 0.0,
+            "diurnal_pattern": [
+              "evening"
+            ]
+          },
+          "rhetoric_style": {
+            "civility": 1.0,
+            "evidence_citation": 0.5
+          }
+        },
+        "cognitive_state": {
+          "core_affect": {
+            "sentiment": "angry",
+            "arousal": 0.048
+          },
+          "issue_stances": [
+            {
+              "topic": "unknown",
+              "support": 0.5,
+              "certainty": 0.5
+            }
+          ]
+        }
+      },
+      "metadata": {
+        "generated_at": "2026-01-23 22:22:57",
+        "user_id": "user_1607858056951382016",
+        "username": "@GinaGinaBoBina_",
+        "tweet_count": 1
+      }
+    },
+    "user_1113553199401709574": {
+      "persona": {
+        "identity": {
+          "username": "@zylon9",
+          "age_band": "25-34",
+          "gender": "unknown",
+          "location": {
+            "country": "unknown",
+            "region_city": "unknown"
+          },
+          "profession": "unknown",
+          "domain_of_expertise": [
+            "politics"
+          ]
+        },
+        "psychometrics": {
+          "personality": {
+            "big_five": {
+              "O": 0.5,
+              "C": 0.5,
+              "E": 0.61,
+              "A": 0.5,
+              "N": 0.5
+            }
+          },
+          "values": {
+            "moral_foundations": {
+              "care": 0.5,
+              "fairness": 0.5,
+              "loyalty": 0.5,
+              "authority": 0.5,
+              "sanctity": 0.5
+            }
+          }
+        },
+        "social_status": {
+          "influence_tier": "ordinary_user",
+          "economic_band": "unknown",
+          "social_capital": {
+            "network_size_proxy": 1
+          }
+        },
+        "behavior_profile": {
+          "posting_cadence": {
+            "posts_per_day": 0.0,
+            "diurnal_pattern": [
+              "evening"
+            ]
+          },
+          "rhetoric_style": {
+            "civility": 1.0,
+            "evidence_citation": 0.5
+          }
+        },
+        "cognitive_state": {
+          "core_affect": {
+            "sentiment": "angry",
+            "arousal": 0.043
+          },
+          "issue_stances": [
+            {
+              "topic": "politics",
+              "support": 0.522,
+              "certainty": 0.5
+            }
+          ]
+        }
+      },
+      "metadata": {
+        "generated_at": "2026-01-23 22:23:04",
+        "user_id": "user_1113553199401709574",
+        "username": "@zylon9",
+        "tweet_count": 1
+      }
+    },
+    "user_1348955111423410176": {
+      "persona": {
+        "identity": {
+          "username": "RecoveryRat",
+          "age_band": "25-34",
+          "gender": "male",
+          "location": {
+            "country": "United States",
+            "region_city": "unknown"
+          },
+          "profession": "unknown",
+          "domain_of_expertise": [
+            "law enforcement support",
+            "political commentary"
+          ]
+        },
+        "psychometrics": {
+          "personality": {
+            "big_five": {
+              "O": 0.5,
+              "C": 0.5,
+              "E": 0.5,
+              "A": 0.5,
+              "N": 0.5
+            }
+          },
+          "values": {
+            "moral_foundations": {
+              "care": 0.5,
+              "fairness": 0.5,
+              "loyalty": 0.5,
+              "authority": 0.5,
+              "sanctity": 0.5
+            }
+          }
+        },
+        "social_status": {
+          "influence_tier": "ordinary_user",
+          "economic_band": "unknown",
+          "social_capital": {
+            "network_size_proxy": 0
+          }
+        },
+        "behavior_profile": {
+          "posting_cadence": {
+            "posts_per_day": 0.0,
+            "diurnal_pattern": [
+              "evening"
+            ]
+          },
+          "rhetoric_style": {
+            "civility": 1.0,
+            "evidence_citation": 0.5
+          }
+        },
+        "cognitive_state": {
+          "core_affect": {
+            "sentiment": "angry",
+            "arousal": 0.0
+          },
+          "issue_stances": [
+            {
+              "topic": "law enforcement support",
+              "support": 1.0,
+              "certainty": 1.0
+            },
+            {
+              "topic": "criminal justice",
+              "support": 0.8,
+              "certainty": 0.8
+            }
+          ]
+        }
+      },
+      "metadata": {
+        "generated_at": "2026-01-23 22:23:13",
+        "user_id": "user_1348955111423410176",
+        "username": "@RecoveryRat",
+        "tweet_count": 1
+      }
+    },
+    "user_1667627457669627907": {
+      "persona": {
+        "identity": {
+          "username": "QueenSadie88",
+          "age_band": "25-34",
+          "gender": "female",
+          "location": {
+            "country": "United States",
+            "region_city": "Chicago"
+          },
+          "profession": "unknown",
+          "domain_of_expertise": [
+            "law enforcement support",
+            "community awareness"
+          ]
+        },
+        "psychometrics": {
+          "personality": {
+            "big_five": {
+              "O": 0.5,
+              "C": 0.609,
+              "E": 0.5,
+              "A": 0.5,
+              "N": 0.5
+            }
+          },
+          "values": {
+            "moral_foundations": {
+              "care": 0.5,
+              "fairness": 0.5,
+              "loyalty": 0.5,
+              "authority": 0.609,
+              "sanctity": 0.5
+            }
+          }
+        },
+        "social_status": {
+          "influence_tier": "opinion_leader",
+          "economic_band": "unknown",
+          "social_capital": {
+            "network_size_proxy": 1
+          }
+        },
+        "behavior_profile": {
+          "posting_cadence": {
+            "posts_per_day": 0.0,
+            "diurnal_pattern": [
+              "evening"
+            ]
+          },
+          "rhetoric_style": {
+            "civility": 1.0,
+            "evidence_citation": 0.5
+          }
+        },
+        "cognitive_state": {
+          "core_affect": {
+            "sentiment": "angry",
+            "arousal": 0.0
+          },
+          "issue_stances": [
+            {
+              "topic": "law enforcement and public safety",
+              "support": 0.8,
+              "certainty": 0.5
+            }
+          ]
+        }
+      },
+      "metadata": {
+        "generated_at": "2026-01-23 22:23:20",
+        "user_id": "user_1667627457669627907",
+        "username": "@QueenSadie88",
+        "tweet_count": 1
+      }
+    },
+    "user_1154541615559643136": {
+      "persona": {
+        "identity": {
+          "username": "@eenkblot",
+          "age_band": "25-34",
+          "gender": "unknown",
+          "location": {
+            "country": "unknown",
+            "region_city": "unknown"
+          },
+          "profession": "unknown",
+          "domain_of_expertise": [
+            "social movements",
+            "social justice"
+          ]
+        },
+        "psychometrics": {
+          "personality": {
+            "big_five": {
+              "O": 0.5,
+              "C": 0.5,
+              "E": 0.5,
+              "A": 0.5,
+              "N": 0.5
+            }
+          },
+          "values": {
+            "moral_foundations": {
+              "care": 0.5,
+              "fairness": 0.5,
+              "loyalty": 0.5,
+              "authority": 0.5,
+              "sanctity": 0.5
+            }
+          }
+        },
+        "social_status": {
+          "influence_tier": "ordinary_user",
+          "economic_band": "unknown",
+          "social_capital": {
+            "network_size_proxy": 1
+          }
+        },
+        "behavior_profile": {
+          "posting_cadence": {
+            "posts_per_day": 0.0,
+            "diurnal_pattern": [
+              "evening"
+            ]
+          },
+          "rhetoric_style": {
+            "civility": 1.0,
+            "evidence_citation": 0.5
+          }
+        },
+        "cognitive_state": {
+          "core_affect": {
+            "sentiment": "angry",
+            "arousal": 0.0
+          },
+          "issue_stances": [
+            {
+              "topic": "BlackLivesMatter",
+              "support": 1.0,
+              "certainty": 0.5
+            }
+          ]
+        }
+      },
+      "metadata": {
+        "generated_at": "2026-01-23 22:23:29",
+        "user_id": "user_1154541615559643136",
+        "username": "@eenkblot",
+        "tweet_count": 1
+      }
+    },
+    "user_1854314878980218885": {
+      "persona": {
+        "identity": {
+          "username": "LouisShortXIV",
+          "age_band": "25-34",
+          "gender": "male",
+          "location": {
+            "country": "United States",
+            "region_city": "unknown"
+          },
+          "profession": "unknown",
+          "domain_of_expertise": [
+            "politics",
+            "social activism"
+          ]
+        },
+        "psychometrics": {
+          "personality": {
+            "big_five": {
+              "O": 0.5,
+              "C": 0.5,
+              "E": 0.667,
+              "A": 0.5,
+              "N": 0.5
+            }
+          },
+          "values": {
+            "moral_foundations": {
+              "care": 0.5,
+              "fairness": 0.5,
+              "loyalty": 0.5,
+              "authority": 0.5,
+              "sanctity": 0.5
+            }
+          }
+        },
+        "social_status": {
+          "influence_tier": "opinion_leader",
+          "economic_band": "unknown",
+          "social_capital": {
+            "network_size_proxy": 4
+          }
+        },
+        "behavior_profile": {
+          "posting_cadence": {
+            "posts_per_day": 0.0,
+            "diurnal_pattern": [
+              "evening"
+            ]
+          },
+          "rhetoric_style": {
+            "civility": 1.0,
+            "evidence_citation": 0.5
+          }
+        },
+        "cognitive_state": {
+          "core_affect": {
+            "sentiment": "angry",
+            "arousal": 0.0
+          },
+          "issue_stances": [
+            {
+              "topic": "ImpeachTrump",
+              "support": 1.0,
+              "certainty": 1.0
+            },
+            {
+              "topic": "TheResistance",
+              "support": 1.0,
+              "certainty": 1.0
+            }
+          ]
+        }
+      },
+      "metadata": {
+        "generated_at": "2026-01-23 22:23:38",
+        "user_id": "user_1854314878980218885",
+        "username": "@LouisShortXIV",
+        "tweet_count": 1
+      }
+    },
+    "user_1896294378013855746": {
+      "persona": {
+        "identity": {
+          "username": "@rbeestweets",
+          "age_band": "unknown",
+          "gender": "unknown",
+          "location": {
+            "country": "unknown",
+            "region_city": "unknown"
+          },
+          "profession": "unknown",
+          "domain_of_expertise": [
+            "social_politics"
+          ]
+        },
+        "psychometrics": {
+          "personality": {
+            "big_five": {
+              "O": 0.5,
+              "C": 0.5,
+              "E": 0.5,
+              "A": 0.5,
+              "N": 0.5
+            }
+          },
+          "values": {
+            "moral_foundations": {
+              "care": 0.5,
+              "fairness": 0.5,
+              "loyalty": 0.5,
+              "authority": 0.5,
+              "sanctity": 0.5
+            }
+          }
+        },
+        "social_status": {
+          "influence_tier": "ordinary_user",
+          "economic_band": "unknown",
+          "social_capital": {
+            "network_size_proxy": 0
+          }
+        },
+        "behavior_profile": {
+          "posting_cadence": {
+            "posts_per_day": 0.0,
+            "diurnal_pattern": [
+              "evening"
+            ]
+          },
+          "rhetoric_style": {
+            "civility": 1.0,
+            "evidence_citation": 0.5
+          }
+        },
+        "cognitive_state": {
+          "core_affect": {
+            "sentiment": "angry",
+            "arousal": 0.0
+          },
+          "issue_stances": [
+            {
+              "topic": "BlueLivesMatter",
+              "support": 1.0,
+              "certainty": 1.0
+            }
+          ]
+        }
+      },
+      "metadata": {
+        "generated_at": "2026-01-23 22:23:49",
+        "user_id": "user_1896294378013855746",
+        "username": "@rbeestweets",
+        "tweet_count": 1
+      }
+    },
+    "user_839425326316843010": {
+      "persona": {
+        "identity": {
+          "username": "@Heather_11_16",
+          "age_band": "25-34",
+          "gender": "female",
+          "location": {
+            "country": "USA",
+            "region_city": "unknown"
+          },
+          "profession": "activist|social_worker|community_organizer",
+          "domain_of_expertise": [
+            "social movements",
+            "racial justice"
+          ]
+        },
+        "psychometrics": {
+          "personality": {
+            "big_five": {
+              "O": 0.5,
+              "C": 0.5,
+              "E": 0.5,
+              "A": 0.5,
+              "N": 0.5
+            }
+          },
+          "values": {
+            "moral_foundations": {
+              "care": 0.5,
+              "fairness": 0.5,
+              "loyalty": 0.5,
+              "authority": 0.5,
+              "sanctity": 0.5
+            }
+          }
+        },
+        "social_status": {
+          "influence_tier": "opinion_leader",
+          "economic_band": "unknown",
+          "social_capital": {
+            "network_size_proxy": 1
+          }
+        },
+        "behavior_profile": {
+          "posting_cadence": {
+            "posts_per_day": 0.0,
+            "diurnal_pattern": [
+              "evening"
+            ]
+          },
+          "rhetoric_style": {
+            "civility": 1.0,
+            "evidence_citation": 0.5
+          }
+        },
+        "cognitive_state": {
+          "core_affect": {
+            "sentiment": "angry",
+            "arousal": 0.0
+          },
+          "issue_stances": [
+            {
+              "topic": "BlackLivesMatter",
+              "support": 1.0,
+              "certainty": 0.5
+            }
+          ]
+        }
+      },
+      "metadata": {
+        "generated_at": "2026-01-23 22:23:57",
+        "user_id": "user_839425326316843010",
+        "username": "@Heather_11_16",
+        "tweet_count": 1
+      }
+    },
+    "user_917246673385963520": {
+      "persona": {
+        "identity": {
+          "username": "LouisvilleB2012",
+          "age_band": "45-54",
+          "gender": "male",
+          "location": {
+            "country": "United States",
+            "region_city": "Louisville, KY"
+          },
+          "profession": "unknown",
+          "domain_of_expertise": [
+            "life",
+            "community"
+          ]
+        },
+        "psychometrics": {
+          "personality": {
+            "big_five": {
+              "O": 0.5,
+              "C": 0.5,
+              "E": 0.5,
+              "A": 0.5,
+              "N": 0.5
+            }
+          },
+          "values": {
+            "moral_foundations": {
+              "care": 0.5,
+              "fairness": 0.5,
+              "loyalty": 0.5,
+              "authority": 0.5,
+              "sanctity": 0.5
+            }
+          }
+        },
+        "social_status": {
+          "influence_tier": "opinion_leader",
+          "economic_band": "unknown",
+          "social_capital": {
+            "network_size_proxy": 1
+          }
+        },
+        "behavior_profile": {
+          "posting_cadence": {
+            "posts_per_day": 0.0,
+            "diurnal_pattern": [
+              "evening"
+            ]
+          },
+          "rhetoric_style": {
+            "civility": 1.0,
+            "evidence_citation": 0.5
+          }
+        },
+        "cognitive_state": {
+          "core_affect": {
+            "sentiment": "angry",
+            "arousal": 0.0
+          },
+          "issue_stances": [
+            {
+              "topic": "life",
+              "support": 0.5,
+              "certainty": 0.5
+            }
+          ]
+        }
+      },
+      "metadata": {
+        "generated_at": "2026-01-23 22:24:07",
+        "user_id": "user_917246673385963520",
+        "username": "@LouisvilleB2012",
+        "tweet_count": 1
+      }
+    },
+    "user_a7383357": {
+      "persona": {
+        "identity": {
+          "username": "@MaizieK",
+          "age_band": "25-34",
+          "gender": "unknown",
+          "location": {
+            "country": "USA",
+            "region_city": "unknown"
+          },
+          "profession": "social activist or community organizer",
+          "domain_of_expertise": [
+            "social movements",
+            "racial justice"
+          ]
+        },
+        "psychometrics": {
+          "personality": {
+            "big_five": {
+              "O": 0.5,
+              "C": 0.56,
+              "E": 0.5,
+              "A": 0.5,
+              "N": 0.5
+            }
+          },
+          "values": {
+            "moral_foundations": {
+              "care": 0.5,
+              "fairness": 0.5,
+              "loyalty": 0.5,
+              "authority": 0.56,
+              "sanctity": 0.5
+            }
+          }
+        },
+        "social_status": {
+          "influence_tier": "opinion_leader",
+          "economic_band": "unknown",
+          "social_capital": {
+            "network_size_proxy": 2
+          }
+        },
+        "behavior_profile": {
+          "posting_cadence": {
+            "posts_per_day": 0.0,
+            "diurnal_pattern": [
+              "evening"
+            ]
+          },
+          "rhetoric_style": {
+            "civility": 1.0,
+            "evidence_citation": 0.5
+          }
+        },
+        "cognitive_state": {
+          "core_affect": {
+            "sentiment": "angry",
+            "arousal": 0.0
+          },
+          "issue_stances": [
+            {
+              "topic": "Black Lives Matter",
+              "support": 1.0,
+              "certainty": 0.5
+            }
+          ]
+        }
+      },
+      "metadata": {
+        "generated_at": "2026-01-23 22:24:16",
+        "user_id": "user_a7383357",
+        "username": "@MaizieK",
+        "tweet_count": 2
+      }
+    },
+    "user_1861373017374208000": {
+      "persona": {
+        "identity": {
+          "username": "@MoSheepdog",
+          "age_band": "25-34",
+          "gender": "unknown",
+          "location": {
+            "country": "unknown",
+            "region_city": "unknown"
+          },
+          "profession": "unknown",
+          "domain_of_expertise": [
+            "business"
+          ]
+        },
+        "psychometrics": {
+          "personality": {
+            "big_five": {
+              "O": 0.5,
+              "C": 0.5,
+              "E": 0.5,
+              "A": 0.5,
+              "N": 0.5
+            }
+          },
+          "values": {
+            "moral_foundations": {
+              "care": 0.5,
+              "fairness": 0.5,
+              "loyalty": 0.5,
+              "authority": 0.5,
+              "sanctity": 0.5
+            }
+          }
+        },
+        "social_status": {
+          "influence_tier": "ordinary_user",
+          "economic_band": "unknown",
+          "social_capital": {
+            "network_size_proxy": 3
+          }
+        },
+        "behavior_profile": {
+          "posting_cadence": {
+            "posts_per_day": 0.0,
+            "diurnal_pattern": [
+              "evening"
+            ]
+          },
+          "rhetoric_style": {
+            "civility": 0.474,
+            "evidence_citation": 0.5
+          }
+        },
+        "cognitive_state": {
+          "core_affect": {
+            "sentiment": "angry",
+            "arousal": 0.0
+          },
+          "issue_stances": [
+            {
+              "topic": "business",
+              "support": 0.0,
+              "certainty": 0.5
+            }
+          ]
+        }
+      },
+      "metadata": {
+        "generated_at": "2026-01-23 22:24:25",
+        "user_id": "user_1861373017374208000",
+        "username": "@MoSheepdog",
+        "tweet_count": 1
+      }
+    },
+    "user_1589773747": {
+      "persona": {
+        "identity": {
+          "username": "@AsianSocialNet",
+          "age_band": "25-34",
+          "gender": "unknown",
+          "location": {
+            "country": "unknown",
+            "region_city": "unknown"
+          },
+          "profession": "unknown",
+          "domain_of_expertise": [
+            "social movements",
+            "social justice",
+            "education"
+          ]
+        },
+        "psychometrics": {
+          "personality": {
+            "big_five": {
+              "O": 0.5,
+              "C": 0.5,
+              "E": 0.5,
+              "A": 0.5,
+              "N": 0.5
+            }
+          },
+          "values": {
+            "moral_foundations": {
+              "care": 0.5,
+              "fairness": 0.5,
+              "loyalty": 0.5,
+              "authority": 0.5,
+              "sanctity": 0.5
+            }
+          }
+        },
+        "social_status": {
+          "influence_tier": "ordinary_user",
+          "economic_band": "unknown",
+          "social_capital": {
+            "network_size_proxy": 0
+          }
+        },
+        "behavior_profile": {
+          "posting_cadence": {
+            "posts_per_day": 0.0,
+            "diurnal_pattern": [
+              "evening"
+            ]
+          },
+          "rhetoric_style": {
+            "civility": 1.0,
+            "evidence_citation": 0.679
+          }
+        },
+        "cognitive_state": {
+          "core_affect": {
+            "sentiment": "angry",
+            "arousal": 0.0
+          },
+          "issue_stances": [
+            {
+              "topic": "Black Lives Matter",
+              "support": 0.5,
+              "certainty": 0.5
+            },
+            {
+              "topic": "social justice",
+              "support": 0.5,
+              "certainty": 0.5
+            }
+          ]
+        }
+      },
+      "metadata": {
+        "generated_at": "2026-01-23 22:24:36",
+        "user_id": "user_1589773747",
+        "username": "@AsianSocialNet",
+        "tweet_count": 1
+      }
+    },
+    "user_837474412232388609": {
+      "persona": {
+        "identity": {
+          "username": "@RaisedbyTexans2",
+          "age_band": "35-44",
+          "gender": "unknown",
+          "location": {
+            "country": "United States",
+            "region_city": "Texas"
+          },
+          "profession": "unknown",
+          "domain_of_expertise": [
+            "life"
+          ]
+        },
+        "psychometrics": {
+          "personality": {
+            "big_five": {
+              "O": 0.5,
+              "C": 0.5,
+              "E": 0.5,
+              "A": 0.5,
+              "N": 0.5
+            }
+          },
+          "values": {
+            "moral_foundations": {
+              "care": 0.5,
+              "fairness": 0.5,
+              "loyalty": 0.5,
+              "authority": 0.5,
+              "sanctity": 0.5
+            }
+          }
+        },
+        "social_status": {
+          "influence_tier": "opinion_leader",
+          "economic_band": "unknown",
+          "social_capital": {
+            "network_size_proxy": 1
+          }
+        },
+        "behavior_profile": {
+          "posting_cadence": {
+            "posts_per_day": 0.0001,
+            "diurnal_pattern": [
+              "evening"
+            ]
+          },
+          "rhetoric_style": {
+            "civility": 1.0,
+            "evidence_citation": 0.5
+          }
+        },
+        "cognitive_state": {
+          "core_affect": {
+            "sentiment": "angry",
+            "arousal": 0.0
+          },
+          "issue_stances": [
+            {
+              "topic": "life",
+              "support": 0.5,
+              "certainty": 0.5
+            }
+          ]
+        }
+      },
+      "metadata": {
+        "generated_at": "2026-01-23 22:24:46",
+        "user_id": "user_837474412232388609",
+        "username": "@RaisedbyTexans2",
+        "tweet_count": 1
+      }
+    },
+    "user_1250818959152164865": {
+      "persona": {
+        "identity": {
+          "username": "@UUColumbia",
+          "age_band": "25-34",
+          "gender": "unknown",
+          "location": {
+            "country": "USA",
+            "region_city": "Howard County, Maryland"
+          },
+          "profession": "community organizer / social activist",
+          "domain_of_expertise": [
+            "social movements",
+            "community engagement"
+          ]
+        },
+        "psychometrics": {
+          "personality": {
+            "big_five": {
+              "O": 0.5,
+              "C": 0.5,
+              "E": 0.5,
+              "A": 0.5,
+              "N": 0.5
+            }
+          },
+          "values": {
+            "moral_foundations": {
+              "care": 0.5,
+              "fairness": 0.5,
+              "loyalty": 0.5,
+              "authority": 0.5,
+              "sanctity": 0.5
+            }
+          }
+        },
+        "social_status": {
+          "influence_tier": "ordinary_user",
+          "economic_band": "unknown",
+          "social_capital": {
+            "network_size_proxy": 0
+          }
+        },
+        "behavior_profile": {
+          "posting_cadence": {
+            "posts_per_day": 0.0001,
+            "diurnal_pattern": [
+              "evening"
+            ]
+          },
+          "rhetoric_style": {
+            "civility": 1.0,
+            "evidence_citation": 0.5
+          }
+        },
+        "cognitive_state": {
+          "core_affect": {
+            "sentiment": "angry",
+            "arousal": 0.0
+          },
+          "issue_stances": [
+            {
+              "topic": "Black Lives Matter",
+              "support": 1.0,
+              "certainty": 0.5
+            }
+          ]
+        }
+      },
+      "metadata": {
+        "generated_at": "2026-01-23 22:24:56",
+        "user_id": "user_1250818959152164865",
+        "username": "@UUColumbia",
+        "tweet_count": 1
+      }
+    },
+    "user_818841277424771072": {
+      "persona": {
+        "identity": {
+          "username": "Karenrosegt",
+          "age_band": "25-34",
+          "gender": "female",
+          "location": {
+            "country": "USA",
+            "region_city": "unknown"
+          },
+          "profession": "health advocate / public health professional",
+          "domain_of_expertise": [
+            "HIV prevention",
+            "Black women's health",
+            "public health advocacy"
+          ]
+        },
+        "psychometrics": {
+          "personality": {
+            "big_five": {
+              "O": 0.5,
+              "C": 0.5,
+              "E": 0.5,
+              "A": 0.5,
+              "N": 0.5
+            }
+          },
+          "values": {
+            "moral_foundations": {
+              "care": 0.5,
+              "fairness": 0.5,
+              "loyalty": 0.5,
+              "authority": 0.5,
+              "sanctity": 0.5
+            }
+          }
+        },
+        "social_status": {
+          "influence_tier": "opinion_leader",
+          "economic_band": "unknown",
+          "social_capital": {
+            "network_size_proxy": 1
+          }
+        },
+        "behavior_profile": {
+          "posting_cadence": {
+            "posts_per_day": 0.0,
+            "diurnal_pattern": [
+              "evening"
+            ]
+          },
+          "rhetoric_style": {
+            "civility": 1.0,
+            "evidence_citation": 0.5
+          }
+        },
+        "cognitive_state": {
+          "core_affect": {
+            "sentiment": "angry",
+            "arousal": 0.0
+          },
+          "issue_stances": [
+            {
+              "topic": "BlackWomen",
+              "support": 1.0,
+              "certainty": 1.0
+            },
+            {
+              "topic": "PrEP",
+              "support": 1.0,
+              "certainty": 1.0
+            },
+            {
+              "topic": "HIV",
+              "support": 1.0,
+              "certainty": 1.0
+            }
+          ]
+        }
+      },
+      "metadata": {
+        "generated_at": "2026-01-23 22:25:06",
+        "user_id": "user_818841277424771072",
+        "username": "@Karenrosegt",
+        "tweet_count": 1
+      }
+    }
+  }
+}

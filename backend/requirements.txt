@@ -1,0 +1,40 @@
+# OASIS Frontend Backend Integration Requirements
+# Python 3.10+
+
+# Core dependencies
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+pydantic>=2.5.3
+pydantic-settings>=2.1.0
+
+# Database
+sqlalchemy>=2.0.25
+aiosqlite>=0.19.0
+
+# WebSocket
+websockets>=12.0
+
+# HTTP client
+httpx>=0.26.0
+
+# CORS
+python-multipart>=0.0.6
+
+# Data processing
+numpy>=1.26.3
+pandas>=2.2.0
+
+# Network analysis for 2D layout
+networkx>=3.2.1
+scipy>=1.12.0
+
+# NLP for emotion analysis (optional, may skip for demo)
+# text2emotion>=0.0.5
+# transformers>=4.37.2
+# torch>=2.5.1
+
+# Environment variables
+python-dotenv>=1.0.0
+
+# Optional: OASIS integration
+# Add path to oasis-main if needed

@@ -1,4 +1,4 @@
-"""
+﻿"""
 OASIS Frontend Integration Backend - Main FastAPI Application
 
 This backend service provides REST API and WebSocket endpoints
@@ -7,7 +7,9 @@ to integrate the OASIS simulation platform with the frontend demo.
 import uuid
 import time
 import asyncio
-from typing import Optional, List
+import re
+import math
+from typing import Optional, List, Any
 from contextlib import asynccontextmanager
 from datetime import datetime
 
@@ -256,6 +258,186 @@ _ticker_running = False
 _ticker_lock = asyncio.Lock()
 
 
+def _get_action_description(action_type: str, action_args: dict) -> str:
+    """Convert OASIS action type to readable description."""
+    if "CREATE_POST" in action_type:
+        content = action_args.get("content", "")
+        if content:
+            return f"posted: {content[:50]}..."
+        return "posted"
+    elif "REFRESH" in action_type:
+        return "refreshed recommendation feed"
+    elif "DO_NOTHING" in action_type:
+        return "observing"
+    elif "LIKE" in action_type:
+        return "liked a post"
+    elif "SHARE" in action_type:
+        return "shared a post"
+    elif "COMMENT" in action_type:
+        return "commented on a post"
+    else:
+        return f"action: {action_type}"
+
+
+def _normalize_agent_id_list(state: SimulationState) -> list[int]:
+    """Return agent ids as integers, regardless of key type."""
+    ids: list[int] = []
+    for raw_key in state.agents.keys():
+        try:
+            ids.append(int(raw_key))
+        except (TypeError, ValueError):
+            continue
+    return ids
+
+
+def _get_agent_state_ref(state: SimulationState, agent_id: int) -> Optional[dict[str, Any]]:
+    """Get mutable agent state dict by id, supporting int/str keys."""
+    if agent_id in state.agents:
+        agent = state.agents[agent_id]
+    elif str(agent_id) in state.agents:
+        agent = state.agents[str(agent_id)]
+    else:
+        return None
+    return agent.get("state")
+
+
+def _get_agent_group(state: SimulationState, agent_id: int) -> str:
+    """Get agent group name if available."""
+    agent = state.agents.get(agent_id) or state.agents.get(str(agent_id)) or {}
+    profile = agent.get("profile", {})
+    return str(profile.get("group", ""))
+
+
+def _agent_ids_by_group(state: SimulationState, group_name: str) -> list[int]:
+    """Find agent ids by exact group name (case-insensitive)."""
+    target = group_name.strip().lower()
+    matched: list[int] = []
+    for agent_id in _normalize_agent_id_list(state):
+        if _get_agent_group(state, agent_id).strip().lower() == target:
+            matched.append(agent_id)
+    return matched
+
+
+def _parse_assignments(raw: str) -> dict[str, float]:
+    """Parse assignment fragments like: mood=0.6 stance=-0.2 resources=120."""
+    assignments: dict[str, float] = {}
+    for key, value in re.findall(r"(mood|stance|resources)\s*=\s*([+-]?\d+(?:\.\d+)?)", raw, flags=re.IGNORECASE):
+        key_norm = key.lower()
+        num = float(value)
+        if key_norm in {"mood", "stance"}:
+            num = max(-1.0, min(1.0, num))
+        elif key_norm == "resources":
+            num = max(0.0, min(10_000.0, num))
+        assignments[key_norm] = num
+    return assignments
+
+
+def _apply_agent_patch(state: SimulationState, agent_id: int, patch: dict[str, float]) -> bool:
+    """Apply parsed numeric patch to an agent state."""
+    agent_state = _get_agent_state_ref(state, agent_id)
+    if not agent_state:
+        return False
+
+    if "mood" in patch:
+        agent_state["mood"] = patch["mood"]
+    if "stance" in patch:
+        agent_state["stance"] = patch["stance"]
+    if "resources" in patch:
+        agent_state["resources"] = patch["resources"]
+    agent_state["lastAction"] = "intervened"
+    return True
+
+
+def _execute_intervention(state: SimulationState, command: str, target_agent_id: Optional[int]) -> dict[str, Any]:
+    """
+    Execute a supported intervention command and mutate simulation state in-place.
+    Returns a structured execution summary for API response/event payload.
+    """
+    original = command.strip()
+    normalized = original
+
+    # Frontend group mode prefixes commands as: [Group A, Group B] actual command
+    if normalized.startswith("[") and "]" in normalized:
+        normalized = normalized.split("]", 1)[1].strip()
+
+    lower = normalized.lower()
+    affected_agents: list[int] = []
+    effects: list[str] = []
+    state_changed = False
+
+    if lower in {"pause", "stop"}:
+        state.is_running = False
+        effects.append("simulation_paused")
+        state_changed = True
+    elif lower in {"resume", "run", "start"}:
+        state.is_running = True
+        effects.append("simulation_resumed")
+        state_changed = True
+    else:
+        speed_match = re.search(r"(?:set\s+)?speed\s*=?\s*([+-]?\d+(?:\.\d+)?)", lower)
+        if speed_match:
+            speed = float(speed_match.group(1))
+            state.speed = max(0.1, min(10.0, speed))
+            effects.append(f"speed_set:{state.speed}")
+            state_changed = True
+
+    set_agent_match = re.match(r"set\s+agent\s+(\d+)\s+(.+)", normalized, flags=re.IGNORECASE)
+    if set_agent_match:
+        agent_id = int(set_agent_match.group(1))
+        patch = _parse_assignments(set_agent_match.group(2))
+        if patch and _apply_agent_patch(state, agent_id, patch):
+            affected_agents.append(agent_id)
+            effects.append("agent_state_set")
+            state_changed = True
+
+    # If targetAgentId is provided, allow direct key-value command fragments.
+    if target_agent_id is not None and not set_agent_match:
+        patch = _parse_assignments(normalized)
+        if patch and _apply_agent_patch(state, target_agent_id, patch):
+            affected_agents.append(target_agent_id)
+            effects.append("target_agent_state_set")
+            state_changed = True
+
+    group_shift_match = re.search(
+        r"shift\s+group\s+(.+?)\s+mood\s*=\s*([+-]?\d+(?:\.\d+)?)",
+        normalized,
+        flags=re.IGNORECASE,
+    )
+    if group_shift_match:
+        group_name = group_shift_match.group(1).strip()
+        delta = float(group_shift_match.group(2))
+        target_ids = _agent_ids_by_group(state, group_name)
+        for agent_id in target_ids:
+            agent_state = _get_agent_state_ref(state, agent_id)
+            if not agent_state:
+                continue
+            current = float(agent_state.get("mood", 0.0))
+            agent_state["mood"] = max(-1.0, min(1.0, current + delta))
+            agent_state["lastAction"] = "intervened_group_shift"
+            affected_agents.append(agent_id)
+        if target_ids:
+            effects.append(f"group_mood_shift:{group_name}")
+            state_changed = True
+
+    if lower.startswith("inject event"):
+        effects.append("event_injected")
+    if lower.startswith("survey"):
+        effects.append("survey_triggered")
+    if lower.startswith("broadcast"):
+        effects.append("broadcast_sent")
+
+    status = "applied" if state_changed or effects else "recorded_only"
+    if not effects:
+        effects.append("command_recorded")
+
+    return {
+        "status": status,
+        "normalizedCommand": normalized,
+        "effects": effects,
+        "affectedAgentIds": sorted(set(affected_agents)),
+    }
+
+
 async def simulation_ticker():
     """Background task that advances the simulation tick."""
     global _ticker_running, _sim_state
@@ -300,8 +482,114 @@ async def simulation_ticker():
 
                         # Log activity
                         if "actions" in result:
-                            print(f"[OASIS] Tick {_sim_state.tick}: {result.get('actions', 0)} actions, "
-                                  f"{result.get('active_agents', 0)} active agents")
+                            actions = result.get('actions', 0)
+                            active_agents = result.get('active_agents', 0)
+                            behaviors = result.get('behaviors', [])  # Get detailed behaviors
+                            print(f"[OASIS] Tick {_sim_state.tick}: {actions} actions, {active_agents} active agents")
+
+                            # Create log entry for tick summary (will appear in Events)
+                            import uuid
+                            from models import save_timeline_event, TimelineEvent, EventType, save_feed_post, FeedPost
+                            tick_summary_event = TimelineEvent(
+                                id=str(uuid.uuid4()),
+                                tick=_sim_state.tick,
+                                type=EventType.INTERVENTION,  # Use INTERVENTION for system events
+                                title=f"[OASIS] Tick {_sim_state.tick}: {actions} actions, {active_agents} active agents",
+                                agent_id=None,
+                                payload={"actions": actions, "active_agents": active_agents}
+                            )
+                            save_timeline_event(tick_summary_event)
+                            await ws_manager.emit_event_created(tick_summary_event.to_dict())
+
+                            # Sync OASIS behaviors to feed as activity logs
+                            for behavior in behaviors:
+                                agent_name = behavior.get("agent_name", "Unknown")
+                                action_type = behavior.get("action_type", "unknown")
+                                action_args = behavior.get("action_args", {})
+                                agent_id = int(behavior.get("agent_id", 0))
+
+                                # Convert action type to readable description
+                                action_desc = _get_action_description(action_type, action_args)
+
+                                # Create feed post as behavior log
+                                behavior_post = FeedPost(
+                                    id=str(uuid.uuid4()),
+                                    tick=_sim_state.tick,
+                                    author_id=agent_id,
+                                    author_name=agent_name,
+                                    emotion=0.0,
+                                    content=f"[Behavior] {action_desc}",
+                                    likes=0,
+                                )
+                                persisted_id = save_feed_post(behavior_post)
+                                behavior_post.id = persisted_id
+                                await ws_manager.emit_post_created(behavior_post.to_dict())
+
+                                behavior_log = LogLine(
+                                    id=str(uuid.uuid4()),
+                                    tick=_sim_state.tick,
+                                    level=LogLevel.INFO,
+                                    text=f"[Ticker] {agent_name}: {action_desc}",
+                                    agent_id=agent_id if agent_id > 0 else None,
+                                )
+                                save_log_line(behavior_log)
+                                await ws_manager.emit_log_added(behavior_log.to_dict())
+                                print(f"[Ticker] {agent_name}: {action_desc}")
+                            # Also sync actual posts to feed database
+                            try:
+                                new_posts = await get_simulation_posts(limit=20)
+                                print(f"[Ticker] Fetched {len(new_posts)} posts from OASIS")
+                                from models import save_oasis_feed_post
+
+                                for post_data in new_posts:
+                                    # Create FeedPost from OASIS post data
+                                    feed_post = FeedPost(
+                                        id=f"oasis_{post_data['id']}",  # Use prefixed ID for reference
+                                        tick=_sim_state.tick,
+                                        author_id=post_data["authorId"],
+                                        author_name=post_data.get("authorName", f"Agent_{post_data['authorId']}"),
+                                        emotion=post_data.get("emotion", 0.0),
+                                        content=post_data.get("content", ""),
+                                        likes=post_data.get("likes", 0),
+                                    )
+                                    # save_oasis_feed_post handles ID mapping internally
+                                    saved = save_oasis_feed_post(int(post_data["id"]), feed_post)
+                                    if saved:
+                                        await ws_manager.emit_post_created(feed_post.to_dict())
+                                        sync_log = LogLine(
+                                            id=str(uuid.uuid4()),
+                                            tick=_sim_state.tick,
+                                            level=LogLevel.INFO,
+                                            text=f"[Ticker] Synced OASIS post {post_data['id']} to feed",
+                                            agent_id=feed_post.author_id,
+                                        )
+                                        save_log_line(sync_log)
+                                        await ws_manager.emit_log_added(sync_log.to_dict())
+                                        print(f"[Ticker] Synced OASIS post {post_data['id']} to feed")
+                                    else:
+                                        skip_log = LogLine(
+                                            id=str(uuid.uuid4()),
+                                            tick=_sim_state.tick,
+                                            level=LogLevel.INFO,
+                                            text=f"[Ticker] OASIS post {post_data['id']} already synced, skipping",
+                                            agent_id=feed_post.author_id,
+                                        )
+                                        save_log_line(skip_log)
+                                        await ws_manager.emit_log_added(skip_log.to_dict())
+                                        print(f"[Ticker] OASIS post {post_data['id']} already synced, skipping")
+                            except Exception as e:
+                                sync_err_log = LogLine(
+                                    id=str(uuid.uuid4()),
+                                    tick=_sim_state.tick,
+                                    level=LogLevel.ERROR,
+                                    text=f"[Ticker] Failed to sync OASIS posts: {e}",
+                                    agent_id=None,
+                                )
+                                save_log_line(sync_err_log)
+                                await ws_manager.emit_log_added(sync_err_log.to_dict())
+                                print(f"[Ticker] Failed to sync OASIS posts: {e}")
+                                import traceback
+                                traceback.print_exc()
                     else:
                         # Fallback: simple ticker
                         _sim_state.tick += 1
@@ -365,7 +653,8 @@ async def simulation_ticker():
                                     content=content,
                                     likes=0,
                                 )
-                                save_feed_post(post)
+                                persisted_id = save_feed_post(post)
+                                post.id = persisted_id
 
                                 # Update agent's last action
                                 _sim_state.agents[agent_id]["state"]["lastAction"] = "post"
@@ -505,40 +794,65 @@ async def get_agent(agent_id: int):
 @app.get("/api/agents/{agent_id}/state")
 async def get_agent_state(agent_id: int):
     """Get the current state of an agent including evidence."""
+    def _safe_num(value: Any, default: float) -> float:
+        try:
+            num = float(value)
+            return num if math.isfinite(num) else default
+        except Exception:
+            return default
+
+    def _fallback_state() -> dict[str, Any]:
+        state = _sim_state
+        agent_data = state.agents.get(agent_id) or state.agents.get(str(agent_id))
+        if not agent_data:
+            raise HTTPException(status_code=404, detail=f"Agent {agent_id} state not found")
+
+        agent_state = agent_data.get("state", {})
+        return {
+            "mood": _safe_num(agent_state.get("mood", 0.0), 0.0),
+            "stance": _safe_num(agent_state.get("stance", 0.0), 0.0),
+            "resources": _safe_num(agent_state.get("resources", 0.5), 0.5),
+            "lastAction": str(agent_state.get("lastAction", "")),
+            "evidence": {
+                "memoryHits": [],
+                "reasoningSummary": "fallback state (OASIS unavailable or invalid)",
+                "toolCalls": [],
+            },
+        }
+
     # Try to get state from OASIS first if available
-    if settings.use_oasis and OASIS_AVAILABLE:
-        oasis_state = await get_simulation_agent_state(agent_id)
-        if oasis_state and "evidence" in oasis_state:
-            # Merge with in-memory state
-            state = _sim_state
-            agent_data = state.agents.get(agent_id) or state.agents.get(str(agent_id))
-            if agent_data:
-                agent_state = agent_data.get("state", {})
-                oasis_state["mood"] = agent_state.get("mood", oasis_state.get("mood", 0.0))
-                oasis_state["stance"] = agent_state.get("stance", oasis_state.get("stance", 0.0))
-                oasis_state["resources"] = agent_state.get("resources", oasis_state.get("resources", 0.5))
-                oasis_state["lastAction"] = agent_state.get("lastAction", oasis_state.get("lastAction", ""))
-            return oasis_state
+    try:
+        if settings.use_oasis and OASIS_AVAILABLE:
+            oasis_state = await get_simulation_agent_state(agent_id)
+            if oasis_state and "evidence" in oasis_state:
+                # Merge with in-memory state for stable values.
+                state = _sim_state
+                agent_data = state.agents.get(agent_id) or state.agents.get(str(agent_id))
+                if agent_data:
+                    agent_state = agent_data.get("state", {})
+                    oasis_state["mood"] = _safe_num(agent_state.get("mood", oasis_state.get("mood", 0.0)), 0.0)
+                    oasis_state["stance"] = _safe_num(agent_state.get("stance", oasis_state.get("stance", 0.0)), 0.0)
+                    oasis_state["resources"] = _safe_num(agent_state.get("resources", oasis_state.get("resources", 0.5)), 0.5)
+                    oasis_state["lastAction"] = str(agent_state.get("lastAction", oasis_state.get("lastAction", "")))
+                else:
+                    oasis_state["mood"] = _safe_num(oasis_state.get("mood", 0.0), 0.0)
+                    oasis_state["stance"] = _safe_num(oasis_state.get("stance", 0.0), 0.0)
+                    oasis_state["resources"] = _safe_num(oasis_state.get("resources", 0.5), 0.5)
+                    oasis_state["lastAction"] = str(oasis_state.get("lastAction", ""))
 
-    # Fall back to in-memory state
-    state = _sim_state
-    agent_data = state.agents.get(agent_id) or state.agents.get(str(agent_id))
-    if not agent_data:
-        raise HTTPException(status_code=404, detail=f"Agent {agent_id} state not found")
+                # Ensure evidence shape is always JSON-safe.
+                evidence = oasis_state.get("evidence") or {}
+                oasis_state["evidence"] = {
+                    "memoryHits": evidence.get("memoryHits", []),
+                    "reasoningSummary": str(evidence.get("reasoningSummary", "")),
+                    "toolCalls": evidence.get("toolCalls", []),
+                }
+                return oasis_state
+    except Exception as e:
+        print(f"[AgentState] OASIS state fetch failed for agent {agent_id}: {e}")
 
-    agent_state = agent_data.get("state", {})
-
-    return {
-        "mood": agent_state.get("mood", 0.0),
-        "stance": agent_state.get("stance", 0.0),
-        "resources": agent_state.get("resources", 0.5),
-        "lastAction": agent_state.get("lastAction", ""),
-        "evidence": {
-            "memoryHits": [],
-            "reasoningSummary": "OASIS not available - no evidence data",
-            "toolCalls": [],
-        },
-    }
+    # Fall back to in-memory state if OASIS path fails or unavailable.
+    return _fallback_state()
 
 
 @app.patch("/api/agents/{agent_id}/state")
@@ -632,8 +946,7 @@ async def create_post(
     """Create a new post."""
     from models import get_agent_by_id
     agent = get_agent_by_id(agent_id)
-    if not agent:
-        raise HTTPException(status_code=404, detail=f"Agent {agent_id} not found")
+    author_name = agent.name if agent else f"Agent_{agent_id}"
 
     # Calculate emotion if not provided
     if emotion is None:
@@ -645,13 +958,14 @@ async def create_post(
         id=str(uuid.uuid4()),
         tick=state.tick,
         author_id=agent_id,
-        author_name=agent.name,
+        author_name=author_name,
         emotion=emotion,
         content=content,
         likes=0,
     )
 
-    save_feed_post(post)
+    persisted_id = save_feed_post(post)
+    post.id = persisted_id
 
     # Emit post creation
     await ws_manager.emit_post_created(post.to_dict())
@@ -672,6 +986,8 @@ async def get_state():
         groups = get_all_group_profiles()
         state.groups = {g.key: g.to_dict() for g in groups}
 
+    intervention_records = get_all_interventions()[:120]
+
     return SimulationStateResponse(
         config=state.config.to_dict(),
         tick=state.tick,
@@ -683,7 +999,7 @@ async def get_state():
         logs=[log.to_dict() for log in state.logs],
         events=[event.to_dict() for event in state.events],
         feed=[post.to_dict() for post in state.feed],
-        interventions=[intervention.to_dict() for intervention in state.interventions],
+        interventions=[intervention.to_dict() for intervention in intervention_records],
         snapshots=[snapshot.to_dict() for snapshot in state.snapshots],
         currentSnapshotId=state.current_snapshot_id,
     )
@@ -1036,9 +1352,46 @@ async def remove_bookmark(bookmark_id: str):
 
 # ============= Intervention Endpoints =============
 
+@app.get("/api/interventions")
+async def list_interventions(
+    limit: int = Query(100, description="Maximum number of intervention records to return"),
+    offset: int = Query(0, description="Number of intervention records to skip"),
+):
+    """Get intervention history records."""
+    records = get_all_interventions()
+    if offset > 0:
+        records = records[offset:]
+    if limit >= 0:
+        records = records[:limit]
+    return [record.to_dict() for record in records]
+
+
 @app.post("/api/intervention")
 async def create_intervention(request: InterventionRequest):
-    """Create an intervention record."""
+    """Create an intervention record and apply command effects to simulation state."""
+    global _sim_state
+    _sim_state = get_simulation_state()
+
+    execution = _execute_intervention(_sim_state, request.command, request.targetAgentId)
+
+    # Keep a lightweight in-memory trail for quick state snapshots.
+    _sim_state.interventions.append({
+        "id": str(uuid.uuid4()),
+        "tick": request.tick,
+        "command": request.command,
+        "targetAgentId": request.targetAgentId,
+    })
+    _sim_state.interventions = _sim_state.interventions[-500:]
+
+    save_simulation_state(_sim_state)
+
+    # Emit updates affected by this intervention.
+    await ws_manager.emit_tick_update(_sim_state.tick, _sim_state.is_running, _sim_state.speed)
+    for agent_id in execution["affectedAgentIds"]:
+        agent_state = _get_agent_state_ref(_sim_state, agent_id)
+        if agent_state:
+            await ws_manager.emit_agent_update(agent_id, agent_state)
+
     intervention = InterventionRecord(
         id=str(uuid.uuid4()),
         tick=request.tick,
@@ -1055,7 +1408,7 @@ async def create_intervention(request: InterventionRequest):
         type=EventType.INTERVENTION,
         title=f"Intervention: {request.command}",
         agent_id=request.targetAgentId,
-        payload={"command": request.command},
+        payload={"command": request.command, "execution": execution},
     )
     save_timeline_event(event)
 
@@ -1066,6 +1419,7 @@ async def create_intervention(request: InterventionRequest):
         "tick": intervention.tick,
         "command": intervention.command,
         "targetAgentId": intervention.target_agent_id,
+        "execution": execution,
     }
 
 
@@ -1188,3 +1542,4 @@ if __name__ == "__main__":
         reload=False,
         log_level="info",
     )
+

@@ -10,7 +10,16 @@ export type Action =
   | { type: 'set_selected_agent'; agentId: number | null }
   | { type: 'push_log'; level: 'info' | 'ok' | 'error'; tick: number; agentId?: number; text: string }
   | { type: 'push_event'; event: TimelineEvent }
-  | { type: 'push_feed'; tick: number; authorId: number; content: string; emotion: number }
+  | {
+      type: 'push_feed'
+      tick: number
+      authorId: number
+      content: string
+      emotion: number
+      authorName?: string
+      likes?: number
+      postId?: string
+    }
   | { type: 'apply_intervention'; tick: number; command: string; targetAgentId?: number }
   | { type: 'set_config'; patch: Partial<SimulationState['config']> }
   | { type: 'mutate_agent_state'; agentId: number; patch: Partial<AgentState> }
@@ -291,10 +300,18 @@ export function reducer(state: SimulationState, action: Action): SimulationState
     case 'push_feed': {
       const authorId = action.authorId
       const s2 = ensureAgent(state, authorId)
-      const authorName = s2.agents[authorId].profile.name
+      const authorName = action.authorName ?? s2.agents[authorId].profile.name
       const next = [
         ...s2.feed,
-        { id: id('post'), tick: action.tick, authorId, authorName, content: action.content, emotion: action.emotion, likes: 0 },
+        {
+          id: action.postId ?? id('post'),
+          tick: action.tick,
+          authorId,
+          authorName,
+          content: action.content,
+          emotion: action.emotion,
+          likes: action.likes ?? 0,
+        },
       ]
       return { ...s2, feed: next.slice(Math.max(0, next.length - MAX_FEED)) }
     }

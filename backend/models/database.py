@@ -8,6 +8,7 @@ import os.path as osp
 import sqlite3
 import json
 import uuid
+import shutil
 from typing import Any, Optional
 from contextlib import contextmanager
 
@@ -42,9 +43,13 @@ from .types import (
 )
 
 
-DB_DIR = "backend/data"
+BASE_DIR = osp.dirname(osp.dirname(__file__))  # backend/
+PROJECT_ROOT = osp.dirname(BASE_DIR)
+DB_DIR = osp.join(PROJECT_ROOT, "data")
+LEGACY_DB_DIR = osp.join(BASE_DIR, "backend", "data")
+ALT_LEGACY_DB_DIR = osp.join(BASE_DIR, "data")
 DB_NAME = "oasis_frontend.db"
-SCHEMA_DIR = "backend/schema"
+SCHEMA_DIR = osp.join(BASE_DIR, "schema")
 
 
 def get_db_path() -> str:
@@ -53,9 +58,24 @@ def get_db_path() -> str:
     if env_db_path:
         return env_db_path
 
-    # Create data directory if it doesn't exist
     os.makedirs(DB_DIR, exist_ok=True)
-    return osp.join(DB_DIR, DB_NAME)
+    db_path = osp.join(DB_DIR, DB_NAME)
+    legacy_db_path = osp.join(LEGACY_DB_DIR, DB_NAME)
+    alt_legacy_db_path = osp.join(ALT_LEGACY_DB_DIR, DB_NAME)
+
+    # One-time best-effort migration from legacy backend/backend/data location.
+    if not osp.exists(db_path):
+        for candidate in (legacy_db_path, alt_legacy_db_path):
+            if not osp.exists(candidate):
+                continue
+            try:
+                shutil.copy2(candidate, db_path)
+                break
+            except Exception:
+                # Keep running with a fresh DB if copy fails.
+                continue
+
+    return db_path
 
 
 @contextmanager
@@ -122,6 +142,16 @@ def init_db():
             INSERT OR IGNORE INTO simulation_state (id, current_tick, is_running, speed, config)
             VALUES (1, 0, 0, 1.0, ?)
         """, (json.dumps(SimulationConfig().to_dict()),))
+
+        # Create OASIS post sync tracking table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS oasis_post_sync (
+                oasis_post_id INTEGER PRIMARY KEY,
+                feed_post_id INTEGER NOT NULL,
+                synced_at TEXT DEFAULT (datetime('now')),
+                FOREIGN KEY(feed_post_id) REFERENCES post(post_id) ON DELETE CASCADE
+            )
+        """)
 
 
 def _row_get(row: sqlite3.Row, key: str, default=None):
@@ -394,8 +424,8 @@ def get_feed_posts(limit: int = 100, offset: int = 0) -> list[FeedPost]:
         return posts
 
 
-def save_feed_post(post: FeedPost) -> None:
-    """Save a feed post to the database."""
+def save_feed_post(post: FeedPost) -> str:
+    """Save a feed post to the database and return persisted post id."""
     with get_db_cursor() as cursor:
         import datetime
         created_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -417,6 +447,142 @@ def save_feed_post(post: FeedPost) -> None:
             INSERT OR REPLACE INTO post_tick (post_id, tick)
             VALUES (?, ?)
         """, (post_id, post.tick))
+
+        return str(post_id)
+
+
+def get_feed_post_by_id(post_id: str) -> Optional[FeedPost]:
+    """Get a feed post by its ID."""
+    with get_db_cursor() as cursor:
+        # Check if it's an OASIS-prefixed ID (check the tracking table)
+        if post_id.startswith("oasis_"):
+            # Extract the original OASIS post ID
+            try:
+                oasis_id = int(post_id.replace("oasis_", ""))
+                # Check if this OASIS post has been synced
+                cursor.execute("""
+                    SELECT feed_post_id FROM oasis_post_sync WHERE oasis_post_id = ?
+                """, (oasis_id,))
+                row = cursor.fetchone()
+                if not row:
+                    return None  # Not synced yet
+                # Get the actual feed post
+                feed_id = row[0]
+                cursor.execute("""
+                    SELECT
+                        p.post_id, p.user_id, p.content, p.created_at, p.num_likes,
+                        pe.emotion, pt.tick
+                    FROM post p
+                    LEFT JOIN post_emotion pe ON p.post_id = pe.post_id
+                    LEFT JOIN post_tick pt ON p.post_id = pt.post_id
+                    WHERE p.post_id = ?
+                """, (feed_id,))
+                post_row = cursor.fetchone()
+                if not post_row:
+                    return None
+                # Get author info
+                cursor.execute("""
+                    SELECT user_name, name
+                    FROM user
+                    WHERE user_id = ?
+                """, (post_row[1],))
+                user_row = cursor.fetchone()
+                author_name = user_row[1] if user_row and user_row[1] else (user_row[0] if user_row else f"Agent_{post_row[1]}")
+                return FeedPost(
+                    id=post_id,
+                    tick=post_row[6] if post_row[6] is not None else 0,
+                    author_id=post_row[1],
+                    author_name=author_name,
+                    emotion=post_row[5] if post_row[5] is not None else 0.0,
+                    content=post_row[2],
+                    likes=post_row[4],
+                )
+            except ValueError:
+                return None
+
+        # Convert string ID to integer for regular posts
+        try:
+            id_int = int(post_id)
+        except ValueError:
+            return None
+
+        cursor.execute("""
+            SELECT
+                p.post_id, p.user_id, p.content, p.created_at, p.num_likes,
+                pe.emotion, pt.tick
+            FROM post p
+            LEFT JOIN post_emotion pe ON p.post_id = pe.post_id
+            LEFT JOIN post_tick pt ON p.post_id = pt.post_id
+            WHERE p.post_id = ?
+        """, (id_int,))
+
+        row = cursor.fetchone()
+        if not row:
+            return None
+
+        # Get author info
+        cursor.execute("""
+            SELECT user_name, name
+            FROM user
+            WHERE user_id = ?
+        """, (row[1],))
+        user_row = cursor.fetchone()
+        author_name = user_row[1] if user_row and user_row[1] else (user_row[0] if user_row else f"Agent_{row[1]}")
+
+        return FeedPost(
+            id=post_id,
+            tick=row[6] if row[6] is not None else 0,
+            author_id=row[1],
+            author_name=author_name,
+            emotion=row[5] if row[5] is not None else 0.0,
+            content=row[2],
+            likes=row[4],
+        )
+
+
+def save_oasis_feed_post(oasis_post_id: int, post: FeedPost) -> bool:
+    """Save an OASIS post to the feed database with tracking."""
+    with get_db_cursor() as cursor:
+        try:
+            # Check if this OASIS post was already synced
+            cursor.execute("""
+                SELECT feed_post_id FROM oasis_post_sync WHERE oasis_post_id = ?
+            """, (oasis_post_id,))
+            existing = cursor.fetchone()
+            if existing:
+                return False  # Already synced
+
+            # Save the post to the feed database
+            import datetime
+            created_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+            cursor.execute("""
+                INSERT INTO post (user_id, content, created_at, num_likes)
+                VALUES (?, ?, ?, ?)
+            """, (post.author_id, post.content, created_at, post.likes))
+
+            feed_post_id = cursor.lastrowid
+
+            cursor.execute("""
+                INSERT INTO post_emotion (post_id, emotion)
+                VALUES (?, ?)
+            """, (feed_post_id, post.emotion))
+
+            cursor.execute("""
+                INSERT OR REPLACE INTO post_tick (post_id, tick)
+                VALUES (?, ?)
+            """, (feed_post_id, post.tick))
+
+            # Record the mapping
+            cursor.execute("""
+                INSERT INTO oasis_post_sync (oasis_post_id, feed_post_id)
+                VALUES (?, ?)
+            """, (oasis_post_id, feed_post_id))
+
+            return True
+        except Exception as e:
+            print(f"Error saving OASIS post: {e}")
+            return False
 
 
 def get_simulation_state() -> SimulationState:

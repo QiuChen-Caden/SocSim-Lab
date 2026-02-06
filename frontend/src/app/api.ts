@@ -142,12 +142,14 @@ export type Bookmark = {
 // ============= API Client =============
 
 class ApiError extends Error {
-  constructor(
-    public status: number,
-    public detail: string,
-  ) {
+  status: number;
+  detail: string;
+
+  constructor(status: number, detail: string) {
     super(`API Error ${status}: ${detail}`);
     this.name = 'ApiError';
+    this.status = status;
+    this.detail = detail;
   }
 }
 
@@ -158,13 +160,11 @@ async function request<T>(
   const url = `${API_BASE_URL}${path}`;
   const token = localStorage.getItem('auth_token');
 
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-    ...options.headers,
-  };
+  const headers = new Headers(options.headers);
+  headers.set('Content-Type', 'application/json');
 
   if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+    headers.set('Authorization', `Bearer ${token}`);
   }
 
   const response = await fetch(url, {
@@ -520,6 +520,25 @@ export const bookmarksApi = {
 // ============= Interventions API =============
 
 export const interventionsApi = {
+  /**
+   * Get intervention history
+   */
+  async getAll(options?: {
+    limit?: number;
+    offset?: number;
+  }): Promise<Array<{ id: string; tick: number; command: string; targetAgentId?: number }>> {
+    const params = new URLSearchParams();
+    if (options?.limit) {
+      params.append('limit', options.limit.toString());
+    }
+    if (options?.offset) {
+      params.append('offset', options.offset.toString());
+    }
+
+    const query = params.toString();
+    return request(`/api/interventions${query ? `?${query}` : ''}`);
+  },
+
   /**
    * Create an intervention
    */

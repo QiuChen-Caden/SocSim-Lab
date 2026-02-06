@@ -1078,6 +1078,30 @@ export function twitterPersonaToAgentProfile(
   const validDiurnalPatterns: DiurnalPattern[] = ['morning', 'afternoon', 'evening', 'night', 'unknown']
   const diurnal_pattern: DiurnalPattern[] = data.diurnal_pattern.filter((p: string) => validDiurnalPatterns.includes(p as DiurnalPattern)) as DiurnalPattern[]
 
+  // 给 big_five 和 moral_foundations 添加基于 agentId 的变化，让进度条显示更明显
+  const addVariation = (base: number, salt: number): number => {
+    // 如果原始值不是0.5，保留原始值；如果是0.5，则添加变化
+    if (Math.abs(base - 0.5) > 0.01) return base
+    const variation = (hash01(numericId * 7 + salt) - 0.5) * 0.6  // -0.3 到 0.3
+    return clamp(base + variation, 0.1, 0.9)
+  }
+
+  const variedBigFive = {
+    O: addVariation(data.big_five.O, 101),
+    C: addVariation(data.big_five.C, 103),
+    E: addVariation(data.big_five.E, 107),
+    A: addVariation(data.big_five.A, 109),
+    N: addVariation(data.big_five.N, 113),
+  }
+
+  const variedMoralFoundations = {
+    care: addVariation(data.moral_foundations.care, 201),
+    fairness: addVariation(data.moral_foundations.fairness, 203),
+    loyalty: addVariation(data.moral_foundations.loyalty, 207),
+    authority: addVariation(data.moral_foundations.authority, 211),
+    sanctity: addVariation(data.moral_foundations.sanctity, 217),
+  }
+
   return {
     id: numericId,
     name: data.username,
@@ -1095,10 +1119,10 @@ export function twitterPersonaToAgentProfile(
     },
     psychometrics: {
       personality: {
-        big_five: data.big_five,
+        big_five: variedBigFive,
       },
       values: {
-        moral_foundations: data.moral_foundations,
+        moral_foundations: variedMoralFoundations,
       },
     },
     social_status: {

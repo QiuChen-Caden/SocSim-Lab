@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, useReducer, useEffect } from 'react'
+import { createContext, useContext, useMemo, useReducer, useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
 import type { AgentState, SimulationState } from './types'
 import { initialState, reducer } from './state'
@@ -6,7 +6,6 @@ import type { Action } from './state'
 import { clamp, id } from './util'
 import api, { wsClient } from './api'
 
-// 是否使用真实后端 API
 const USE_REAL_API = import.meta.env.VITE_USE_REAL_API === 'true'
 
 type SimActions = {
@@ -19,7 +18,7 @@ type SimActions = {
   logError: (text: string, agentId?: number) => void
   pushEvent: (event: { tick: number; type: any; title: string; agentId?: number; payload?: Record<string, unknown> }) => void
   pushFeed: (authorId: number, content: string, emotion: number) => void
-  applyIntervention: (command: string, targetAgentId?: number) => void
+  applyIntervention: (command: string, targetAgentId?: number) => Promise<boolean>
   setConfig: (patch: Partial<SimulationState['config']>) => void
   patchAgent: (agentId: number, patch: Partial<AgentState>) => void
   regeneratePersonas: () => void
@@ -43,15 +42,31 @@ function makeEvent(input: { tick: number; type: any; title: string; agentId?: nu
 
 export function SimulationProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, undefined, initialState)
+  const hydratedRef = useRef(false)
+  const hydrateInFlightRef = useRef(false)
+  const seenFeedIdsRef = useRef<Set<string>>(new Set())
+  const seenEventIdsRef = useRef<Set<string>>(new Set())
+  const seenLogIdsRef = useRef<Set<string>>(new Set())
+  const seenInterventionIdsRef = useRef<Set<string>>(new Set())
 
-  // 从后端加载数据（如果启用真实 API）
   useEffect(() => {
-    if (USE_REAL_API) {
-      // 从后端加载智能体数据
-      api.agents.getAll().then(agents => {
-        // 更新本地状态中的 agents
+    if (!USE_REAL_API) return
+
+    const hydrateFromBackend = async () => {
+      if (hydrateInFlightRef.current || hydratedRef.current) return
+      hydrateInFlightRef.current = true
+
+      try {
+        const [agents, backendState, interventions, posts, events, logs] = await Promise.all([
+          api.agents.getAll(),
+          api.state.get(),
+          api.interventions.getAll({ limit: 120 }),
+          api.feed.getAll({ limit: 220 }),
+          api.events.getAll({ limit: 350 }),
+          api.logs.getAll({ limit: 450 }),
+        ])
+
         for (const agent of agents) {
-          // 为每个 agent 初始化一个默认状态
           dispatch({
             type: 'mutate_agent_state',
             agentId: agent.id,
@@ -60,70 +75,207 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
               stance: 0,
               resources: 100,
               lastAction: 'idle',
-              evidence: { memoryHits: [], reasoningSummary: '', toolCalls: [] }
-            }
+              evidence: { memoryHits: [], reasoningSummary: '', toolCalls: [] },
+            },
           })
         }
-      }).catch(err => {
-        console.error('[SimulationProvider] Failed to load agents from backend:', err)
-      })
 
-      // 从后端加载模拟状态
-      api.state.get().then(backendState => {
         dispatch({ type: 'set_tick', tick: backendState.tick })
-        // 直接设置后端的运行状态，不要 toggle
         dispatch({ type: 'set_running', isRunning: backendState.isRunning })
         dispatch({ type: 'set_speed', speed: backendState.speed })
         if (backendState.selectedAgentId !== null) {
           dispatch({ type: 'set_selected_agent', agentId: backendState.selectedAgentId })
         }
-      }).catch(err => {
-        console.error('[SimulationProvider] Failed to load state from backend:', err)
-      })
 
-      // 连接 WebSocket 并订阅实时更新
-      wsClient.connect()
-      wsClient.subscribe({ eventTypes: ['tick', 'post', 'event', 'log', 'state'] })
+        const tickCap = backendState.tick
 
-      // 监听 WebSocket 消息
-      const unsubscribe = wsClient.onMessage((message) => {
-        if (message.type === 'tick_update') {
-          dispatch({ type: 'set_tick', tick: message.tick })
-          dispatch({ type: 'set_running', isRunning: message.isRunning })
-          dispatch({ type: 'set_speed', speed: message.speed })
-        } else if (message.type === 'post_created') {
-          dispatch({ type: 'push_feed', tick: message.post.tick, authorId: message.post.authorId, content: message.post.content, emotion: message.post.emotion })
-        } else if (message.type === 'event_created') {
-          dispatch({ type: 'push_event', event: { ...message.event, id: message.event.id || id('evt') } })
-        } else if (message.type === 'log_added') {
-          dispatch({ type: 'push_log', level: message.log.level, tick: message.log.tick, agentId: message.log.agentId, text: message.log.text })
-        } else if (message.type === 'simulation_state') {
-          // 完整的状态更新
-          dispatch({ type: 'set_tick', tick: message.state.tick })
-          dispatch({ type: 'set_running', isRunning: message.state.isRunning })
-          dispatch({ type: 'set_speed', speed: message.state.speed })
-          if (message.state.selectedAgentId !== null) {
-            dispatch({ type: 'set_selected_agent', agentId: message.state.selectedAgentId })
-          }
-        }
-      })
+        interventions
+          .slice()
+          .reverse()
+          .forEach((iv) => {
+            if (seenInterventionIdsRef.current.has(iv.id)) return
+            seenInterventionIdsRef.current.add(iv.id)
+            dispatch({
+              type: 'apply_intervention',
+              tick: iv.tick,
+              command: iv.command,
+              targetAgentId: iv.targetAgentId,
+            })
+          })
 
-      // 清理函数
-      return () => {
-        unsubscribe()
-        // 注意：不在这里断开 WebSocket，因为其他组件可能也在使用
+        posts
+          .filter(post => post.tick <= tickCap)
+          .slice()
+          .reverse()
+          .forEach((post) => {
+            if (seenFeedIdsRef.current.has(post.id)) return
+            seenFeedIdsRef.current.add(post.id)
+            dispatch({
+              type: 'push_feed',
+              tick: post.tick,
+              authorId: post.authorId,
+              authorName: post.authorName,
+              content: post.content,
+              emotion: post.emotion,
+              likes: post.likes,
+              postId: post.id,
+            })
+          })
+
+        events
+          .filter(event => event.tick <= tickCap)
+          .slice()
+          .reverse()
+          .forEach((event) => {
+            const eventId = event.id || id('evt')
+            if (seenEventIdsRef.current.has(eventId)) return
+            seenEventIdsRef.current.add(eventId)
+            dispatch({ type: 'push_event', event: { ...event, id: eventId } })
+          })
+
+        logs
+          .filter(log => log.tick <= tickCap)
+          .slice()
+          .reverse()
+          .forEach((log) => {
+            if (seenLogIdsRef.current.has(log.id)) return
+            seenLogIdsRef.current.add(log.id)
+            dispatch({ type: 'push_log', level: log.level, tick: log.tick, agentId: log.agentId, text: log.text })
+          })
+
+        hydratedRef.current = true
+      } catch (err) {
+        console.error('[SimulationProvider] Backend hydrate failed, will retry:', err)
+      } finally {
+        hydrateInFlightRef.current = false
       }
     }
-  }, []) // 只在挂载时执行一次
+
+    const syncStreamFromBackend = async () => {
+      if (!hydratedRef.current) return
+      try {
+        const backendState = await api.state.get()
+        const tickCap = backendState.tick
+        const [posts, events, logs] = await Promise.all([
+          api.feed.getAll({ limit: 220 }),
+          api.events.getAll({ limit: 350 }),
+          api.logs.getAll({ limit: 450 }),
+        ])
+
+        posts
+          .filter(post => post.tick <= tickCap)
+          .slice()
+          .reverse()
+          .forEach((post) => {
+            if (seenFeedIdsRef.current.has(post.id)) return
+            seenFeedIdsRef.current.add(post.id)
+            dispatch({
+              type: 'push_feed',
+              tick: post.tick,
+              authorId: post.authorId,
+              authorName: post.authorName,
+              content: post.content,
+              emotion: post.emotion,
+              likes: post.likes,
+              postId: post.id,
+            })
+          })
+
+        events
+          .filter(event => event.tick <= tickCap)
+          .slice()
+          .reverse()
+          .forEach((event) => {
+            const eventId = event.id || id('evt')
+            if (seenEventIdsRef.current.has(eventId)) return
+            seenEventIdsRef.current.add(eventId)
+            dispatch({ type: 'push_event', event: { ...event, id: eventId } })
+          })
+
+        logs
+          .filter(log => log.tick <= tickCap)
+          .slice()
+          .reverse()
+          .forEach((log) => {
+            if (seenLogIdsRef.current.has(log.id)) return
+            seenLogIdsRef.current.add(log.id)
+            dispatch({ type: 'push_log', level: log.level, tick: log.tick, agentId: log.agentId, text: log.text })
+          })
+      } catch (err) {
+        console.warn('[SimulationProvider] Stream sync failed:', err)
+      }
+    }
+
+    hydrateFromBackend()
+
+    const retryTimer = window.setInterval(() => {
+      if (!hydratedRef.current) {
+        hydrateFromBackend()
+      }
+    }, 3000)
+    const streamSyncTimer = window.setInterval(() => {
+      syncStreamFromBackend()
+    }, 2500)
+
+    wsClient.connect()
+    wsClient.subscribe({ eventTypes: ['tick', 'post', 'event', 'log', 'state'] })
+
+    const unsubscribe = wsClient.onMessage((message) => {
+      if (message.type === 'tick_update') {
+        dispatch({ type: 'set_tick', tick: message.tick })
+        dispatch({ type: 'set_running', isRunning: message.isRunning })
+        dispatch({ type: 'set_speed', speed: message.speed })
+      } else if (message.type === 'post_created') {
+        if (seenFeedIdsRef.current.has(message.post.id)) return
+        seenFeedIdsRef.current.add(message.post.id)
+        dispatch({
+          type: 'push_feed',
+          tick: message.post.tick,
+          authorId: message.post.authorId,
+          authorName: message.post.authorName,
+          content: message.post.content,
+          emotion: message.post.emotion,
+          likes: message.post.likes,
+          postId: message.post.id,
+        })
+      } else if (message.type === 'event_created') {
+        const eventId = message.event.id || id('evt')
+        if (seenEventIdsRef.current.has(eventId)) return
+        seenEventIdsRef.current.add(eventId)
+        dispatch({ type: 'push_event', event: { ...message.event, id: eventId } })
+      } else if (message.type === 'log_added') {
+        if (seenLogIdsRef.current.has(message.log.id)) return
+        seenLogIdsRef.current.add(message.log.id)
+        dispatch({ type: 'push_log', level: message.log.level, tick: message.log.tick, agentId: message.log.agentId, text: message.log.text })
+      } else if (message.type === 'simulation_state') {
+        dispatch({ type: 'set_tick', tick: message.state.tick })
+        dispatch({ type: 'set_running', isRunning: message.state.isRunning })
+        dispatch({ type: 'set_speed', speed: message.state.speed })
+        if (message.state.selectedAgentId !== null) {
+          dispatch({ type: 'set_selected_agent', agentId: message.state.selectedAgentId })
+        }
+      } else if (message.type === 'connected') {
+        if (!hydratedRef.current) {
+          hydrateFromBackend()
+        } else {
+          syncStreamFromBackend()
+        }
+      }
+    })
+
+    return () => {
+      window.clearInterval(retryTimer)
+      window.clearInterval(streamSyncTimer)
+      unsubscribe()
+    }
+  }, [])
 
   const actions = useMemo<SimActions>(() => {
     return {
       toggleRun: async () => {
         const newRunningState = !state.isRunning
-        // 先更新本地状态以获得即时响应
         dispatch({ type: 'toggle_run' })
 
-        // 如果使用真实API，同步到后端
         if (USE_REAL_API) {
           try {
             if (newRunningState) {
@@ -133,7 +285,6 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
             }
           } catch (err) {
             console.error('[SimulationProvider] Failed to toggle run state:', err)
-            // 如果API调用失败，恢复本地状态
             dispatch({ type: 'toggle_run' })
           }
         }
@@ -165,8 +316,28 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
       pushEvent: (e) => dispatch({ type: 'push_event', event: makeEvent({ ...e, tick: e.tick }) }),
       pushFeed: (authorId, content, emotion) =>
         dispatch({ type: 'push_feed', tick: state.tick, authorId, content, emotion: clamp(emotion, -1, 1) }),
-      applyIntervention: (command, targetAgentId) =>
-        dispatch({ type: 'apply_intervention', tick: state.tick, command, targetAgentId }),
+      applyIntervention: async (command, targetAgentId) => {
+        if (USE_REAL_API) {
+          try {
+            await api.interventions.create({ tick: state.tick, command, targetAgentId })
+            dispatch({ type: 'apply_intervention', tick: state.tick, command, targetAgentId })
+            return true
+          } catch (err) {
+            console.error('[SimulationProvider] Failed to apply intervention:', err)
+            dispatch({
+              type: 'push_log',
+              level: 'error',
+              tick: state.tick,
+              agentId: targetAgentId,
+              text: `intervention failed: ${command}`,
+            })
+            return false
+          }
+        }
+
+        dispatch({ type: 'apply_intervention', tick: state.tick, command, targetAgentId })
+        return true
+      },
       setConfig: (patch) => dispatch({ type: 'set_config', patch }),
       patchAgent: (agentId, patch) => dispatch({ type: 'mutate_agent_state', agentId, patch }),
       regeneratePersonas: () => dispatch({ type: 'regenerate_personas' }),
@@ -175,7 +346,6 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
       deleteSnapshot: (snapshotId) => dispatch({ type: 'delete_snapshot', snapshotId }),
       clearSnapshots: () => dispatch({ type: 'clear_snapshots' }),
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.tick, state.isRunning])
 
   const value = useMemo<SimContextValue>(() => ({ state, dispatch, actions }), [actions, state])

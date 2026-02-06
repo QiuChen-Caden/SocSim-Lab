@@ -150,7 +150,7 @@ export function PixiWorld({ zoomLevel, onZoomChange }: PixiWorldProps) {
         viewportRef.current = viewport
 
         viewport.drag().pinch().wheel().decelerate()
-        viewport.setZoom(0.35, true)
+        viewport.setZoom(3.5, true)  // 更大的缩放，让30个agent更紧凑
         viewport.moveCenter(worldSize / 2, worldSize / 2)
 
         if (typeof ResizeObserver !== 'undefined') {

@@ -9,9 +9,11 @@ import json
 from typing import Any
 
 # Database paths
-DB_DIR = "backend/data"
+BASE_DIR = osp.dirname(__file__)  # backend/
+PROJECT_ROOT = osp.dirname(BASE_DIR)
+DB_DIR = osp.join(PROJECT_ROOT, "data")
 DB_NAME = "oasis_frontend.db"
-SCHEMA_DIR = "backend/schema"
+SCHEMA_DIR = osp.join(BASE_DIR, "schema")
 
 
 def get_db_path() -> str:
@@ -244,6 +246,16 @@ def create_extended_tables(cursor: sqlite3.Cursor) -> None:
             command TEXT NOT NULL,
             target_agent_id INTEGER,
             created_at INTEGER NOT NULL
+        )
+    """)
+
+    # OASIS post sync tracking
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS oasis_post_sync (
+            oasis_post_id INTEGER PRIMARY KEY,
+            feed_post_id INTEGER NOT NULL,
+            synced_at TEXT DEFAULT (datetime('now')),
+            FOREIGN KEY(feed_post_id) REFERENCES post(post_id) ON DELETE CASCADE
         )
     """)
 

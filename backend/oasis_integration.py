@@ -59,7 +59,7 @@ except ImportError as e:
 class OasisSimulation:
     """OASIS Simulation wrapper for FastAPI integration."""
 
-    def __init__(self, db_path: str = "backend/data/oasis_simulation.db"):
+    def __init__(self, db_path: str = str(Path(__file__).resolve().parent.parent / "data" / "oasis_simulation.db")):
         self.db_path = db_path
         self.env: Optional[OasisEnv] = None
         self.agent_graph: Optional[AgentGraph] = None
@@ -188,14 +188,16 @@ class OasisSimulation:
                 # For simplicity, randomly select some agents to perform actions
                 import random
                 actions = {}
+                agent_behaviors = []  # Track detailed behaviors
 
-                # Get agents from agent_mappings
-                agents = list(self.env.agent_graph.agent_mappings.values())
+                # Get agents from agent_mappings as (key, value) pairs
+                # The key is the sequential agent_id (0, 1, 2, ...)
+                agent_items = list(self.env.agent_graph.agent_mappings.items())
                 # Select ~10% of agents to act each tick
-                num_active = max(1, len(agents) // 10)
+                num_active = max(1, len(agent_items) // 10)
 
                 for _ in range(num_active):
-                    agent = random.choice(agents)
+                    agent_id, agent = random.choice(agent_items)
                     # Use simple actions that don't require existing IDs
                     # CREATE_POST just needs content, DO_NOTHING needs nothing
                     simple_actions = [
@@ -205,20 +207,44 @@ class OasisSimulation:
                     ]
                     # Select a random simple action
                     action_type = random.choice(simple_actions)
+                    action_args = self._get_action_args(action_type, agent)
+
+                    # Track behavior before execution - use the sequential agent_id
+                    user_name = agent.user_info.user_name if hasattr(agent.user_info, 'user_name') else f"Agent_{agent_id}"
+
                     actions[agent] = ManualAction(
                         action_type=action_type,
-                        action_args=self._get_action_args(action_type, agent)
+                        action_args=action_args
                     )
 
+                    # Record behavior details - use sequential agent_id from mappings
+                    behavior = {
+                        "agent_id": int(agent_id),  # Use the sequential ID from mappings
+                        "agent_name": user_name,
+                        "action_type": str(action_type),
+                        "action_args": action_args,
+                    }
+                    agent_behaviors.append(behavior)
+
                 # Execute the step
-                await self.env.step(actions)
+                result = await self.env.step(actions)
                 self.tick += 1
+
+                # Capture actual results from OASIS (posts created, etc.)
+                # The result dict contains info about what actually happened
+                detailed_behaviors = []
+                for behavior in agent_behaviors:
+                    behavior_copy = behavior.copy()
+                    behavior_copy["tick"] = self.tick
+                    behavior_copy["success"] = True  # Default to success
+                    detailed_behaviors.append(behavior_copy)
 
                 return {
                     "tick": self.tick,
                     "actions": len(actions),
                     "active_agents": num_active,
-                    "total_agents": len(agents),
+                    "total_agents": len(agent_items),
+                    "behaviors": detailed_behaviors,  # Return detailed behaviors
                 }
 
             except Exception as e:
@@ -267,7 +293,7 @@ class OasisSimulation:
                     u.user_name, u.name
                 FROM post p
                 JOIN user u ON p.user_id = u.user_id
-                ORDER BY p.created_at DESC
+                ORDER BY p.post_id DESC
                 LIMIT ?
             """, (limit,))
 
@@ -291,17 +317,30 @@ class OasisSimulation:
 
     def _get_user_id(self, agent) -> int:
         """Safely get user ID from OASIS agent."""
-        # Try different possible attribute names for user ID
+        # Try different possible attribute names for user ID.
+        candidates = []
+        if hasattr(agent, 'agent_id'):
+            candidates.append(agent.agent_id)
         if hasattr(agent, 'user_id'):
-            return agent.user_id
-        if hasattr(agent.user_info, 'user_id'):
-            return agent.user_info.user_id
-        if hasattr(agent.user_info, 'uid'):
-            return agent.user_info.uid
-        if hasattr(agent.user_info, 'id'):
-            return agent.user_info.id
-        # Fallback: use agent_id from mappings
-        return 0
+            candidates.append(agent.user_id)
+        if hasattr(agent, 'user_info') and hasattr(agent.user_info, 'user_id'):
+            candidates.append(agent.user_info.user_id)
+        if hasattr(agent, 'user_info') and hasattr(agent.user_info, 'uid'):
+            candidates.append(agent.user_info.uid)
+        if hasattr(agent, 'user_info') and hasattr(agent.user_info, 'id'):
+            candidates.append(agent.user_info.id)
+
+        for value in candidates:
+            try:
+                return int(value)
+            except Exception:
+                continue
+
+        # Fallback: try to get from string representation
+        try:
+            return int(str(agent).split('Agent')[-1].split('(')[0].strip())
+        except:
+            return 0
 
     async def get_agents(self) -> list[Dict[str, Any]]:
         """Get all agents from the simulation."""

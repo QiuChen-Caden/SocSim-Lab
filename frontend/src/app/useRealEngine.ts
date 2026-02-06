@@ -32,32 +32,41 @@ export function useRealEngine() {
 
       // Get all agents
       const agents = await api.agents.getAll()
-      const agentsMap: Record<number, { profile: typeof agents[0]; state: { mood: number; stance: number; resources: number; lastAction: string } }> = {}
-      for (const agent of agents) {
-        // Get agent state
-        const agentState = await api.agents.getState(agent.id)
-        agentsMap[agent.id] = {
-          profile: agent,
-          state: agentState,
+
+      // Fetch all agent states in parallel (much faster than sequential)
+      const agentStatePromises = agents.map(agent =>
+        api.agents.getState(agent.id).catch(err => {
+          console.warn(`[RealEngine] Failed to get state for agent ${agent.id}:`, err)
+          // Return default state on error
+          return { mood: 0.5, stance: 0, resources: 0.5, lastAction: 'error' }
+        })
+      )
+      const agentStates = await Promise.all(agentStatePromises)
+
+      // Build agents map with real states
+      const agentsMap: Record<number, { profile: typeof agents[0]; state: typeof agentStates[0] }> = {}
+      for (let i = 0; i < agents.length; i++) {
+        agentsMap[agents[i].id] = {
+          profile: agents[i],
+          state: agentStates[i],
         }
       }
 
-      // Get events
-      const events = await api.events.getAll({ limit: 350 })
-
-      // Get logs
-      const logs = await api.logs.getAll({ limit: 450 })
-
-      // Get feed
-      const feed = await api.feed.getAll({ limit: 220 })
+      // Warm cache for core resources.
+      await api.events.getAll({ limit: 350 })
+      await api.logs.getAll({ limit: 450 })
+      await api.feed.getAll({ limit: 220 })
 
       // Update simulation state
       sim.actions.setTick(state.tick)
+
+      // Initialize agents in simulation with real states
       for (const [id, agent] of Object.entries(agentsMap)) {
-        sim.actions.mutateAgentState(Number(id), agent.state)
+        // patchAgent will ensure agent exists via ensureAgent
+        sim.actions.patchAgent(Number(id), agent.state)
       }
 
-      console.log('[RealEngine] Initialized from backend')
+      console.log('[RealEngine] Initialized from backend with real agent states')
       isInitializedRef.current = true
     } catch (error) {
       console.error('[RealEngine] Failed to initialize:', error)
@@ -79,13 +88,13 @@ export function useRealEngine() {
 
       case 'agent_update': {
         const { agentId, state } = message
-        sim.actions.mutateAgentState(agentId, state)
+        sim.actions.patchAgent(agentId, state)
         break
       }
 
       case 'post_created': {
         const { post } = message
-        sim.actions.pushFeed(post.tick, post.authorId, post.content, post.emotion)
+        sim.actions.pushFeed(post.authorId, post.content, post.emotion)
         break
       }
 
@@ -97,7 +106,7 @@ export function useRealEngine() {
 
       case 'log_added': {
         const { log } = message
-        sim.actions.pushLog(log.level, log.tick, log.agentId, log.text)
+        sim.dispatch({ type: 'push_log', level: log.level, tick: log.tick, agentId: log.agentId, text: log.text })
         break
       }
 
@@ -109,7 +118,7 @@ export function useRealEngine() {
 
       case 'error': {
         console.error('[RealEngine] Server error:', message.error)
-        sim.actions.pushLog('error', sim.state.tick, undefined, `Server: ${message.error}`)
+        sim.dispatch({ type: 'push_log', level: 'error', tick: sim.state.tick, text: `Server: ${message.error}` })
         break
       }
 
@@ -159,7 +168,7 @@ export function useRealEngine() {
       } catch (error) {
         console.error('[RealEngine] Sync/poll failed:', error)
       }
-    }, 500) // Poll every 500ms for smooth updates
+    }, 2000) // Poll every 2 seconds to reduce load
 
     return () => {
       if (syncIntervalRef.current) {
@@ -202,7 +211,6 @@ export function useRealEngine() {
 
   // Handle simulation control actions (user-initiated only)
   // Don't trigger on polling updates - use a ref to track the source
-  const isUserInitiatedRef = useRef(false)
   const lastIsRunningRef = useRef(false)
 
   useEffect(() => {

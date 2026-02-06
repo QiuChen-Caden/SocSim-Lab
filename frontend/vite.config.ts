@@ -14,10 +14,7 @@ export default defineConfig({
         // Don't rewrite the path (keep /api prefix)
         rewrite: (path) => path,
       },
-      '/ws': {
-        target: 'ws://127.0.0.1:8765',
-        ws: true,
-      },
+      // WebSocket proxy disabled - using HTTP polling instead
     },
   },
 })

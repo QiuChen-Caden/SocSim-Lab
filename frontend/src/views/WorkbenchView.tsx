@@ -947,9 +947,10 @@ export function WorkbenchView() {
                     <div className="panel__bd" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: 0 }}>
                       <div style={{ padding: 'var(--space-md)', overflow: 'auto', flex: 1 }}>
                         <div className="row" style={{ gap: 8, marginBottom: 12 }}>
-                          <button className="btn btn--primary" style={{ flex: 1 }} onClick={() => {
+                          <button className="btn btn--primary" style={{ flex: 1 }} onClick={async () => {
                             const agentId = sim.state.selectedAgentId!
-                            sim.actions.applyIntervention('ping agent', agentId)
+                            const ok = await sim.actions.applyIntervention('ping agent', agentId)
+                            if (!ok) return
                             sim.actions.pushEvent({ tick: sim.state.tick, type: 'intervention', agentId, title: `Ping agent_${agentId}` })
                             sim.actions.logInfo(`ping agent_${agentId}`, agentId)
                           }}>Ping</button>
@@ -1754,7 +1755,7 @@ function IntervenePanel() {
     })
   }
 
-  const handleApplyGroupIntervention = () => {
+  const handleApplyGroupIntervention = async () => {
     if (targetGroups.length === 0 || !cmd.trim()) return
 
     // Find all agents in the target groups
@@ -1763,9 +1764,13 @@ function IntervenePanel() {
       .map(([agentId, _]) => Number(agentId))
 
     // Apply intervention to all agents in the selected groups
-    groupAgents.forEach(agentId => {
-      sim.actions.applyIntervention(`[Group ${targetGroups.join(', ')}] ${cmd}`, agentId)
-    })
+    let successCount = 0
+    for (const agentId of groupAgents) {
+      const ok = await sim.actions.applyIntervention(`[Group ${targetGroups.join(', ')}] ${cmd}`, agentId)
+      if (ok) successCount += 1
+    }
+
+    if (successCount === 0) return
 
     sim.actions.pushEvent({
       tick: sim.state.tick,
@@ -1773,29 +1778,35 @@ function IntervenePanel() {
       title: `Group Intervention: ${targetGroups.join(', ')} - ${cmd.slice(0, 40)}...`,
     })
 
-    sim.actions.logOk(`group intervention applied to ${targetGroups.join(', ')}: ${cmd} (${groupAgents.length} agents across ${targetGroups.length} group(s))`)
+    sim.actions.logOk(`group intervention applied to ${targetGroups.join(', ')}: ${cmd} (${successCount} / ${groupAgents.length} agents across ${targetGroups.length} group(s))`)
 
     setCmd('')
   }
 
-  const handleApplyAgentIntervention = () => {
+  const handleApplyAgentIntervention = async () => {
     if (!cmd.trim()) return
 
     if (agentMultiSelectMode && targetAgents.length > 0) {
       // Apply to multiple agents
-      targetAgents.forEach(agentId => {
-        sim.actions.applyIntervention(cmd, agentId)
-      })
+      let successCount = 0
+      for (const agentId of targetAgents) {
+        const ok = await sim.actions.applyIntervention(cmd, agentId)
+        if (ok) successCount += 1
+      }
+
+      if (successCount === 0) return
+
       sim.actions.pushEvent({
         tick: sim.state.tick,
         type: 'intervention',
-        title: `Multi-Agent Intervention: ${cmd.slice(0, 40)}... (${targetAgents.length} agents)`,
+        title: `Multi-Agent Intervention: ${cmd.slice(0, 40)}... (${successCount}/${targetAgents.length} agents)`,
       })
-      sim.actions.logOk(`intervention applied to ${targetAgents.length} agents: ${cmd}`)
+      sim.actions.logOk(`intervention applied to ${successCount}/${targetAgents.length} agents: ${cmd}`)
     } else {
       // Apply to single agent
       const agentId = Number(target)
-      sim.actions.applyIntervention(cmd, Number.isFinite(agentId) ? agentId : undefined)
+      const ok = await sim.actions.applyIntervention(cmd, Number.isFinite(agentId) ? agentId : undefined)
+      if (!ok) return
       sim.actions.pushEvent({
         tick: sim.state.tick,
         type: 'intervention',

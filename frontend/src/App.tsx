@@ -52,7 +52,7 @@ function ThemeToggleButton() {
 
 function Shell() {
   // 根据环境变量选择使用真实 API 或 Mock 引擎
-  const engine = USE_REAL_API ? useRealEngine() : useMockEngine()
+  USE_REAL_API ? useRealEngine() : useMockEngine()
   const sim = useSim()
   const [active, setActive] = useState<ViewKey>('world')
   const [theme, setTheme] = useState<Theme>(() => {

@@ -1,9 +1,9 @@
 # SocSim Lab - API 接口文档
 
-> **版本**: v3.0
+> **版本**: v3.1
 > **更新日期**: 2026-02-06
-> **Base URL**: `http://localhost:8000`
-> **WebSocket**: `ws://localhost:8000/ws`
+> **Base URL**: `http://localhost:8765`
+> **WebSocket**: `ws://localhost:8765/ws`
 
 ---
 
@@ -15,8 +15,9 @@
 4. [响应格式](#响应格式)
 5. [接口列表](#接口列表)
 6. [数据模型](#数据模型)
-7. [WebSocket 协议](#websocket-协议)
-8. [错误码](#错误码)
+7. [LLM 配置](#llm-配置)
+8. [WebSocket 协议](#websocket-协议)
+9. [错误码](#错误码)
 
 ---
 
@@ -1197,6 +1198,115 @@ interface TimelineEvent {
 
 ---
 
+## LLM 配置
+
+### SimulationConfig (模拟配置)
+
+```typescript
+interface SimulationConfig {
+  seed: number               // 随机种子
+  agent_count: number        // 智能体数量
+  world_size: number         // 世界大小
+  ticks_per_second: number   // 每秒时间步数
+  sample_agents: number      // 采样智能体数
+  scenarioText: string       // 场景描述
+  experimentName: string     // 实验名称
+  designReady: boolean       // 设计完成标志
+
+  // LLM 配置
+  llmEnabled: boolean        // 是否启用 LLM
+  llmProvider: string        // 提供商: openai, deepseek, vllm, stub
+  llmModel: string           // 模型名称
+  llmBaseUrl: string         // API 基础 URL
+  llmApiKey: string          // API 密钥
+  llmTemperature: number     // 生成温度 (0-1)
+  llmMaxTokens: number       // 最大令牌数
+  llmTopP: number            // Top-p 采样
+  llmActiveAgents: number    // 活跃 LLM 智能体数
+  llmTimeoutMs: number       // 超时时间 (毫秒)
+}
+```
+
+### LLM 提供商配置
+
+#### OpenAI
+
+```json
+{
+  "llmProvider": "openai",
+  "llmModel": "gpt-4o-mini",
+  "llmBaseUrl": "https://api.openai.com/v1",
+  "llmApiKey": "sk-...",
+  "llmTemperature": 0.7,
+  "llmMaxTokens": 512
+}
+```
+
+#### DeepSeek
+
+```json
+{
+  "llmProvider": "deepseek",
+  "llmModel": "deepseek-chat",
+  "llmBaseUrl": "https://api.deepseek.com/v1",
+  "llmApiKey": "sk-...",
+  "llmTemperature": 0.7,
+  "llmMaxTokens": 512
+}
+```
+
+#### vLLM (本地部署)
+
+```json
+{
+  "llmProvider": "vllm",
+  "llmModel": "meta-llama/Llama-3-8b",
+  "llmBaseUrl": "http://localhost:8000/v1",
+  "llmApiKey": "",
+  "llmTemperature": 0.7,
+  "llmMaxTokens": 512
+}
+```
+
+#### Stub (调试模式)
+
+```json
+{
+  "llmProvider": "stub",
+  "llmEnabled": false
+}
+```
+
+### 参数约束
+
+| 参数 | 最小值 | 最大值 | 默认值 |
+|------|--------|--------|--------|
+| `llmTemperature` | 0 | 1 | 0.7 |
+| `llmMaxTokens` | 64 | 4096 | 512 |
+| `llmTopP` | 0 | 1 | 1.0 |
+| `llmActiveAgents` | 1 | 200 | 3 |
+| `llmTimeoutMs` | 1000 | 120000 | 30000 |
+
+### 更新 LLM 配置
+
+通过 `PATCH /api/state` 端点更新配置：
+
+```bash
+curl -X PATCH http://localhost:8765/api/state \
+  -H "Content-Type: application/json" \
+  -d '{
+    "config": {
+      "llmEnabled": true,
+      "llmProvider": "deepseek",
+      "llmModel": "deepseek-chat",
+      "llmBaseUrl": "https://api.deepseek.com/v1",
+      "llmApiKey": "your-api-key"
+    }
+  }'
+```
+
+---
+
 ## WebSocket 协议
 
 ### 连接
@@ -1372,7 +1482,24 @@ ws://localhost:8000/ws
 | `event_created` | S→C | 时间线事件创建 |
 | `log_added` | S→C | 日志添加 |
 | `simulation_state` | S→C | 模拟状态更新 |
+| `llm_action` | S→C | LLM 智能体动作 |
 | `error` | S→C | 错误通知 |
+
+#### LLM 智能体动作
+
+```json
+{
+  "type": "llm_action",
+  "data": {
+    "agent_id": 1,
+    "action": "posted_message",
+    "content": "This is a thoughtful response...",
+    "model": "deepseek-chat",
+    "tokens_used": 45,
+    "latency_ms": 1250
+  }
+}
+```
 
 ---
 

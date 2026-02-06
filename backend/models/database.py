@@ -394,7 +394,7 @@ def get_feed_posts(limit: int = 100, offset: int = 0) -> list[FeedPost]:
                 pe.emotion,
                 COALESCE(pt.tick, 0) as tick
             FROM post p
-            JOIN user u ON p.user_id = u.user_id
+            LEFT JOIN user u ON p.user_id = u.user_id
             LEFT JOIN post_emotion pe ON p.post_id = pe.post_id
             LEFT JOIN post_tick pt ON p.post_id = pt.post_id
             ORDER BY COALESCE(pt.tick, p.rowid) DESC
@@ -415,8 +415,8 @@ def get_feed_posts(limit: int = 100, offset: int = 0) -> list[FeedPost]:
             posts.append(FeedPost(
                 id=str(row["post_id"]),
                 tick=tick,
-                author_id=row["user_id"],
-                author_name=row["name"] or row["user_name"] or f"Agent_{row['user_id']}",
+                author_id=row["user_id"] if row["user_id"] is not None else 0,
+                author_name=row["name"] or row["user_name"] or f"Agent_{row['user_id'] if row['user_id'] is not None else 0}",
                 emotion=_row_get(row, "emotion", 0.0),
                 content=row["content"] or "",
                 likes=row["num_likes"] or 0,

@@ -761,6 +761,124 @@ export function WorkbenchView() {
                             onChange={(e) => sim.actions.setConfig({ experimentName: e.target.value })}
                           />
                         </div>
+                        <div style={{ marginTop: 14, padding: 10, border: '1px solid var(--border)', borderRadius: 10, background: 'rgba(255,255,255,0.02)' }}>
+                          <div style={{ fontWeight: 600, marginBottom: 8 }}>LLM Runtime（DeepSeek）</div>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                            <div>
+                              <label className="muted">LLM enabled</label>
+                              <select
+                                className="input"
+                                value={sim.state.config.llmEnabled ? 'true' : 'false'}
+                                onChange={(e) => sim.actions.setConfig({ llmEnabled: e.target.value === 'true' })}
+                              >
+                                <option value="true">true</option>
+                                <option value="false">false</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="muted">provider</label>
+                              <input
+                                className="input"
+                                type="text"
+                                value={sim.state.config.llmProvider}
+                                onChange={(e) => sim.actions.setConfig({ llmProvider: e.target.value })}
+                              />
+                            </div>
+                            <div>
+                              <label className="muted">model</label>
+                              <input
+                                className="input"
+                                type="text"
+                                value={sim.state.config.llmModel}
+                                onChange={(e) => sim.actions.setConfig({ llmModel: e.target.value })}
+                              />
+                            </div>
+                            <div>
+                              <label className="muted">active agents / tick</label>
+                              <input
+                                className="input"
+                                type="number"
+                                min={1}
+                                max={100}
+                                value={sim.state.config.llmActiveAgents}
+                                onChange={(e) => sim.actions.setConfig({ llmActiveAgents: Number(e.target.value) })}
+                              />
+                            </div>
+                            <div>
+                              <label className="muted">timeout ms</label>
+                              <input
+                                className="input"
+                                type="number"
+                                min={1000}
+                                max={120000}
+                                value={sim.state.config.llmTimeoutMs}
+                                onChange={(e) => sim.actions.setConfig({ llmTimeoutMs: Number(e.target.value) })}
+                              />
+                            </div>
+                            <div>
+                              <label className="muted">max retries</label>
+                              <input
+                                className="input"
+                                type="number"
+                                min={0}
+                                max={5}
+                                value={sim.state.config.llmMaxRetries}
+                                onChange={(e) => sim.actions.setConfig({ llmMaxRetries: Number(e.target.value) })}
+                              />
+                            </div>
+                            <div>
+                              <label className="muted">retry backoff ms</label>
+                              <input
+                                className="input"
+                                type="number"
+                                min={0}
+                                max={5000}
+                                value={sim.state.config.llmRetryBackoffMs}
+                                onChange={(e) => sim.actions.setConfig({ llmRetryBackoffMs: Number(e.target.value) })}
+                              />
+                            </div>
+                            <div>
+                              <label className="muted">max actions/min</label>
+                              <input
+                                className="input"
+                                type="number"
+                                min={1}
+                                max={5000}
+                                value={sim.state.config.llmMaxActionsPerMinute}
+                                onChange={(e) => sim.actions.setConfig({ llmMaxActionsPerMinute: Number(e.target.value) })}
+                              />
+                            </div>
+                            <div>
+                              <label className="muted">fallback on error</label>
+                              <select
+                                className="input"
+                                value={sim.state.config.llmFallbackOnError ? 'true' : 'false'}
+                                onChange={(e) => sim.actions.setConfig({ llmFallbackOnError: e.target.value === 'true' })}
+                              >
+                                <option value="true">true</option>
+                                <option value="false">false</option>
+                              </select>
+                            </div>
+                          </div>
+                          <div style={{ marginTop: 8 }}>
+                            <label className="muted">base url</label>
+                            <input
+                              className="input"
+                              type="text"
+                              value={sim.state.config.llmBaseUrl}
+                              onChange={(e) => sim.actions.setConfig({ llmBaseUrl: e.target.value })}
+                            />
+                          </div>
+                          <div style={{ marginTop: 8 }}>
+                            <label className="muted">api key</label>
+                            <input
+                              className="input"
+                              type="password"
+                              value={sim.state.config.llmApiKey}
+                              onChange={(e) => sim.actions.setConfig({ llmApiKey: e.target.value })}
+                            />
+                          </div>
+                        </div>
                         <div style={{ marginTop: 16, padding: 12, border: '1px solid var(--border)', borderRadius: 10, background: 'rgba(65, 211, 159, 0.08)' }}>
                           <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
                             <div>
@@ -768,9 +886,7 @@ export function WorkbenchView() {
                                 配置完成 Configuration Complete
                               </div>
                               <div className="muted" style={{ fontSize: 11 }}>
-                                {sim.state.config.designReady
-                                  ? 'Design 已完成，可进入 Run。'
-                                  : 'Design 未完成：请先点击 Save Changes 解锁 Run。'}
+                                {'Design 配置可随时修改，Run 不再受限。'}
                               </div>
                             </div>
                             <button
@@ -779,7 +895,6 @@ export function WorkbenchView() {
                                 sim.actions.logInfo('(user) started run from config')
                                 setStep(2)
                               }}
-                              disabled={!sim.state.config.designReady}
                               style={{ padding: '8px 16px', fontWeight: 650 }}
                             >
                               开始 Run →
@@ -850,8 +965,6 @@ export function WorkbenchView() {
                         className="btn btn--primary"
                         style={{ flex: 1 }}
                         onClick={() => sim.actions.toggleRun()}
-                        disabled={!sim.state.isRunning && !sim.state.config.designReady}
-                        title={!sim.state.isRunning && !sim.state.config.designReady ? '先在 Design 点击 Save Changes' : ''}
                       >
                         {sim.state.isRunning ? '⏸ 暂停' : '▶ 运行'}
                       </button>
@@ -1847,8 +1960,6 @@ function IntervenePanel() {
                 className="btn"
                 style={{ flex: 1 }}
                 onClick={() => sim.actions.toggleRun()}
-                disabled={!sim.state.isRunning && !sim.state.config.designReady}
-                title={!sim.state.isRunning && !sim.state.config.designReady ? '先在 Design 点击 Save Changes' : ''}
               >
                 {sim.state.isRunning ? '⏸ Pause 暂停' : '▶ Run 运行'}
               </button>

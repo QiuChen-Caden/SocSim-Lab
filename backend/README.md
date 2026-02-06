@@ -53,6 +53,14 @@ python main.py
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
+### Windows PowerShell (verified command)
+
+```powershell
+Set-Location "C:\Users\Lenovo\Desktop\SocSim-Lab\backend"
+$env:PYTHONIOENCODING = "utf-8"
+.\venv\Scripts\python.exe .\main.py
+```
+
 The API will be available at `http://localhost:8000`
 
 ## API Documentation

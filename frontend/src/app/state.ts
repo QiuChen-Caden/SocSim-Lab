@@ -2,6 +2,8 @@ import type { AgentState, SimulationState, TimelineEvent } from './types'
 import { makeAgentProfile, makeGroupProfiles, twitterPersonaToAgentProfile, getTwitterPersonaIds } from './persona'
 import { clamp, hash01, id } from './util'
 
+const USE_REAL_API = import.meta.env.VITE_USE_REAL_API === 'true'
+
 export type Action =
   | { type: 'toggle_run' }
   | { type: 'set_running'; isRunning: boolean }
@@ -29,9 +31,9 @@ export type Action =
   | { type: 'delete_snapshot'; snapshotId: string }
   | { type: 'clear_snapshots' }
 
-const MAX_LOGS = 450
-const MAX_EVENTS = 350
-const MAX_FEED = 220
+const MAX_LOGS = 4000
+const MAX_EVENTS = 2500
+const MAX_FEED = 2000
 const MAX_INTERVENTIONS = 120
 
 function makeEvidence(agentId: number, tick: number) {
@@ -96,6 +98,20 @@ export function initialState(): SimulationState {
         '场景：基于真实 Twitter 用户画像的社交模拟。使用 30 个真实提取的 Twitter personas（包含身份、心理测量、行为特征等）。智能体会在空间中移动，并在 Feed 中发布/互动。你可以暂停并注入事件或修改智能体状态。',
       experimentName: 'Twitter Personas Simulation',
       designReady: false,
+      llmEnabled: true,
+      llmProvider: 'deepseek',
+      llmModel: 'deepseek-chat',
+      llmBaseUrl: 'https://api.deepseek.com/v1',
+      llmApiKey: 'sk-5c79877413f346ceb7d4fdbf6daed4e6',
+      llmTemperature: 0.7,
+      llmMaxTokens: 512,
+      llmTopP: 1,
+      llmActiveAgents: 3,
+      llmTimeoutMs: 30000,
+      llmMaxRetries: 1,
+      llmRetryBackoffMs: 300,
+      llmMaxActionsPerMinute: 240,
+      llmFallbackOnError: true,
     },
     tick: 0,
     isRunning: true,
@@ -212,6 +228,10 @@ export function reducer(state: SimulationState, action: Action): SimulationState
       return { ...state, speed: clamp(action.speed, 0.1, 20) }
     case 'set_tick': {
       const next = clamp(action.tick, 0, 200_000)
+      if (USE_REAL_API) {
+        // In backend-driven mode, keep stream data intact and only advance tick.
+        return { ...state, tick: next }
+      }
       const agentId = state.selectedAgentId
 
       // 根据新的 tick 过滤数据

@@ -1,7 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { SimulationProvider, useSim } from './app/SimulationProvider'
 import { useMockEngine } from './app/useMockEngine'
-import { useRealEngine } from './app/useRealEngine'
 import { FeedView } from './views/FeedView'
 import { ReplayView } from './views/ReplayView'
 import { WorkbenchView } from './views/WorkbenchView'
@@ -52,7 +51,7 @@ function ThemeToggleButton() {
 
 function Shell() {
   // 根据环境变量选择使用真实 API 或 Mock 引擎
-  USE_REAL_API ? useRealEngine() : useMockEngine()
+  if (!USE_REAL_API) useMockEngine()
   const sim = useSim()
   const [active, setActive] = useState<ViewKey>('world')
   const [theme, setTheme] = useState<Theme>(() => {
@@ -110,8 +109,6 @@ function Shell() {
                 <button
                   className="btn"
                   onClick={() => sim.actions.toggleRun()}
-                  disabled={!sim.state.isRunning && !sim.state.config.designReady}
-                  title={!sim.state.isRunning && !sim.state.config.designReady ? '先在 Workbench Design 中保存配置' : ''}
                 >
                   {sim.state.isRunning ? 'Pause' : 'Run'}
                 </button>

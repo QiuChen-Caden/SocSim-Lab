@@ -7,6 +7,17 @@ import { clamp, id } from './util'
 import api, { wsClient } from './api'
 
 const USE_REAL_API = import.meta.env.VITE_USE_REAL_API === 'true'
+const HYDRATE_LIMITS = {
+  interventions: 80,
+  feed: 160,
+  events: 180,
+  logs: 220,
+}
+const STREAM_LIMITS = {
+  feed: 40,
+  events: 50,
+  logs: 80,
+}
 
 type SimActions = {
   toggleRun: () => void
@@ -62,10 +73,10 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
         const [agents, backendState, interventions, posts, events, logs] = await Promise.all([
           api.agents.getAll(),
           api.state.get(),
-          api.interventions.getAll({ limit: 120 }),
-          api.feed.getAll({ limit: 220 }),
-          api.events.getAll({ limit: 350 }),
-          api.logs.getAll({ limit: 450 }),
+          api.interventions.getAll({ limit: HYDRATE_LIMITS.interventions }),
+          api.feed.getAll({ limit: HYDRATE_LIMITS.feed }),
+          api.events.getAll({ limit: HYDRATE_LIMITS.events }),
+          api.logs.getAll({ limit: HYDRATE_LIMITS.logs }),
         ])
 
         for (const agent of agents) {
@@ -90,8 +101,6 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
           dispatch({ type: 'set_selected_agent', agentId: backendState.selectedAgentId })
         }
 
-        const tickCap = backendState.tick
-
         interventions
           .slice()
           .reverse()
@@ -107,7 +116,6 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
           })
 
         posts
-          .filter(post => post.tick <= tickCap)
           .slice()
           .reverse()
           .forEach((post) => {
@@ -126,7 +134,6 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
           })
 
         events
-          .filter(event => event.tick <= tickCap)
           .slice()
           .reverse()
           .forEach((event) => {
@@ -137,7 +144,6 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
           })
 
         logs
-          .filter(log => log.tick <= tickCap)
           .slice()
           .reverse()
           .forEach((log) => {
@@ -158,15 +164,16 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
       if (!hydratedRef.current) return
       try {
         const backendState = await api.state.get()
-        const tickCap = backendState.tick
+        dispatch({ type: 'set_tick', tick: backendState.tick })
+        dispatch({ type: 'set_running', isRunning: backendState.isRunning })
+        dispatch({ type: 'set_speed', speed: backendState.speed })
         const [posts, events, logs] = await Promise.all([
-          api.feed.getAll({ limit: 220 }),
-          api.events.getAll({ limit: 350 }),
-          api.logs.getAll({ limit: 450 }),
+          api.feed.getAll({ limit: STREAM_LIMITS.feed }),
+          api.events.getAll({ limit: STREAM_LIMITS.events }),
+          api.logs.getAll({ limit: STREAM_LIMITS.logs }),
         ])
 
         posts
-          .filter(post => post.tick <= tickCap)
           .slice()
           .reverse()
           .forEach((post) => {
@@ -185,7 +192,6 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
           })
 
         events
-          .filter(event => event.tick <= tickCap)
           .slice()
           .reverse()
           .forEach((event) => {
@@ -196,7 +202,6 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
           })
 
         logs
-          .filter(log => log.tick <= tickCap)
           .slice()
           .reverse()
           .forEach((log) => {
@@ -218,7 +223,7 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
     }, 3000)
     const streamSyncTimer = window.setInterval(() => {
       syncStreamFromBackend()
-    }, 2500)
+    }, 1000)
 
     wsClient.connect()
     wsClient.subscribe({ eventTypes: ['tick', 'post', 'event', 'log', 'state'] })
@@ -271,6 +276,7 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
       window.clearInterval(retryTimer)
       window.clearInterval(streamSyncTimer)
       unsubscribe()
+      wsClient.disconnect()
     }
   }, [])
 
@@ -285,16 +291,6 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
   const actions = useMemo<SimActions>(() => {
     return {
       toggleRun: async () => {
-        if (!state.isRunning && !state.config.designReady) {
-          dispatch({
-            type: 'push_log',
-            level: 'error',
-            tick: state.tick,
-            text: 'run blocked: complete Design and click "Save Changes" first',
-          })
-          return
-        }
-
         const newRunningState = !state.isRunning
         dispatch({ type: 'toggle_run' })
 
@@ -361,17 +357,10 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
         return true
       },
       setConfig: (patch) => {
-        const touchesDesignConfig = ['scenarioText', 'seed', 'ticksPerSecond', 'worldSize', 'sampleAgents', 'viewportMode', 'experimentName']
-          .some((key) => key in patch)
-        const normalizedPatch =
-          touchesDesignConfig && !('designReady' in patch)
-            ? { ...patch, designReady: false }
-            : patch
-
-        dispatch({ type: 'set_config', patch: normalizedPatch })
+        dispatch({ type: 'set_config', patch })
 
         if (!USE_REAL_API) return
-        pendingConfigPatchRef.current = { ...pendingConfigPatchRef.current, ...normalizedPatch }
+        pendingConfigPatchRef.current = { ...pendingConfigPatchRef.current, ...patch }
 
         if (configPatchTimerRef.current) {
           window.clearTimeout(configPatchTimerRef.current)

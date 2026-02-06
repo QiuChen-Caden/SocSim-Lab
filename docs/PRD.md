@@ -1,10 +1,10 @@
 # SocSim Lab - 产品需求文档 (PRD)
 
-> **文档版本**: v3.0
+> **文档版本**: v3.1
 > **创建日期**: 2025-01-30
 > **更新日期**: 2026-02-06
 > **产品状态**: 功能完整 / 生产就绪
-> **相关文档**: [UI Inventory](./ui-inventory.md)
+> **相关文档**: [UI Inventory](./ui-inventory.md) | [LLM Integration](./LLM-Integration.md)
 
 ---
 
@@ -14,12 +14,14 @@
 
 SocSim Lab 是一个**社交模拟可视化平台**，采用前后端分离架构，旨在帮助研究人员、数据科学家和策略制定者通过多智能体模拟（Agent-Based Modeling）来研究社会动态、舆情传播和群体行为。
 
-**项目现状** (v3.0):
+**项目现状** (v3.1):
 - 前端 UI 完整度: **100%**（4个核心页面全部实现）
 - 后端 API 完整度: **100%**（FastAPI + SQLite + WebSocket）
+- OASIS 集成: **100%**（社交模拟框架完整集成）
+- LLM 智能体: **100%**（支持 OpenAI/DeepSeek/vLLM/Stub）
 - 数据来源: 30个真实 Twitter personas（已导入数据库）
 - 生产就绪度: **生产可用**
-- 技术栈: React 19 + FastAPI + PixiJS 8.x + ECharts
+- 技术栈: React 19 + FastAPI + OASIS + CAMEL + PixiJS 8.x + ECharts
 
 ### 1.2 目标
 
@@ -36,10 +38,9 @@ SocSim Lab 是一个**社交模拟可视化平台**，采用前后端分离架�
 |---------|------|
 | **实时多人协作** | 当前版本不支持多用户同时编辑同一模拟场景 |
 | **移动端适配** | 当前仅支持桌面端浏览器 |
-| **高级 AI 模拟** | 智能体行为基于预设规则，非 LLM 驱动 |
 | **云部署** | 需要用户自行部署，不提供 SaaS 服务 |
 
-**注**: 项目已集成完整的后端服务，包含数据持久化和 WebSocket 实时通信。
+**注**: 项目已集成完整的后端服务，包含数据持久化和 WebSocket 实时通信。**v3.1 新增 LLM 智能体功能**，支持大语言模型驱动智能体行为。
 
 ---
 
@@ -213,6 +214,7 @@ SocSim Lab 是一个**社交模拟可视化平台**，采用前后端分离架�
 | **S-6** | **数据加载状态** | 1. 页面加载时显示 Loading<br>2. 数据请求时显示进度<br>3. 超时显示错误提示 | 全局 / `LoadingProvider` | [Loading 状态处理](./ui-inventory.md#loading-状态处理) |
 | **S-7** | **操作反馈** | 1. 操作成功显示 Toast 提示<br>2. 操作失败显示错误信息<br>3. 提示 3 秒后自动消失 | 全局 / `Toast` 组件 | [Success 成功状态](./ui-inventory.md#success-成功状态) |
 | **S-8** | **表单验证** | 1. 输入框验证格式<br>2. 必填项提示<br>3. 错误信息显示在对应字段下方 | `WorkbenchView` 表单 | [缺失的错误处理](./ui-inventory.md#缺失的错误处理) |
+| **S-9** | **LLM 智能体** | 1. 支持多种 LLM 提供商<br>2. 可配置模型参数<br>3. 动态切换启用状态 | `WorkbenchView` / LLM Config | [LLM Integration](./LLM-Integration.md) |
 
 ---
 
@@ -220,13 +222,14 @@ SocSim Lab 是一个**社交模拟可视化平台**，采用前后端分离架�
 
 | ID | 需求描述 | 验收标准 | 对应页面/组件 | 备注 |
 |----|---------|---------|-------------|------|
-| **C-1** | **干预功能** | 1. 可选择干预类型<br>2. 配置干预参数<br>3. 执行干预并观察效果 | `WorkbenchView` / `Interventions` | [不完整的交互 - Intervention](./ui-inventory.md#不完整的交互) |
+| **C-1** | **干预功能增强** | 1. 批量干预操作<br>2. 自然语言命令解析<br>3. 预设干预模板 | `WorkbenchView` / `Interventions` | |
 | **C-2** | **数据导出** | 1. 导出模拟数据为 CSV<br>2. 导出图表为图片<br>3. 导出配置为 JSON | 全局 | 需后端支持 |
 | **C-3** | **虚拟滚动** | 1. Feed 支持 10000+ 帖子流畅滚动<br>2. 只渲染可见区域 | `FeedView` | [性能优化建议](./ui-inventory.md#性能优化建议) |
 | **C-4** | **键盘快捷键** | 1. Space: 播放/暂停<br>2. ←/→: 前进/后退<br>3. 数字键: 切换页面 | 全局 | [不完整的交互 - 键盘快捷键](./ui-inventory.md#不完整的交互) |
 | **C-5** | **离线缓存** | 1. Service Worker 缓存资源<br>2. IndexedDB 存储数据 | 全局 | [未实现功能 - 离线缓存](./ui-inventory.md#未实现功能) |
 | **C-6** | **可访问性优化** | 1. 添加 ARIA 标签<br>2. 支持键盘导航<br>3. 屏幕阅读器友好 | 全局 | [可访问性问题](./ui-inventory.md#可访问性问题) |
 | **C-7** | **多语言支持** | 1. 中文/英文切换<br>2. 所有文案国际化 | 全局 | i18n 集成 |
+| **C-8** | **多模型对比** | 1. 同时运行多个 LLM<br>2. 对比不同模型输出<br>3. 分析模型行为差异 | `WorkbenchView` | |
 
 ---
 
@@ -382,6 +385,41 @@ interface FeedPost {
   likes: number              // 点赞数
 }
 ```
+
+#### 5.2.6 LLMConfig (大语言模型配置)
+
+```typescript
+interface LLMConfig {
+  // 基础配置
+  llmEnabled: boolean        // 是否启用 LLM 智能体
+  llmProvider: LLMProvider   // LLM 提供商
+
+  // 模型配置
+  llmModel: string           // 模型名称
+  llmBaseUrl: string         // API 基础 URL
+  llmApiKey: string          // API 密钥
+
+  // 生成参数
+  llmTemperature: number     // 生成温度 (0-1)
+  llmMaxTokens: number       // 最大令牌数
+  llmTopP: number            // Top-p 采样参数
+
+  // 运行时配置
+  llmActiveAgents: number    // 活跃 LLM 智能体数量
+  llmTimeoutMs: number       // 请求超时时间 (毫秒)
+}
+
+type LLMProvider = 'openai' | 'deepseek' | 'vllm' | 'stub'
+```
+
+**LLM 提供商说明**:
+
+| 提供商 | 说明 | 推荐模型 |
+|--------|------|----------|
+| `openai` | OpenAI 官方 API | gpt-4o-mini, gpt-4o |
+| `deepseek` | DeepSeek API | deepseek-chat |
+| `vllm` | 本地或私有部署 | 自定义模型 |
+| `stub` | 调试模式（无实际调用） | STUB |
 
 ---
 

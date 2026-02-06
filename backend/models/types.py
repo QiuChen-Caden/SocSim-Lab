@@ -525,6 +525,20 @@ class SimulationConfig:
     scenario_text: str = ""
     experiment_name: str = "experiment_1"
     design_ready: bool = False
+    llm_enabled: bool = True
+    llm_provider: str = "deepseek"
+    llm_model: str = "deepseek-chat"
+    llm_base_url: str = "https://api.deepseek.com/v1"
+    llm_api_key: str = "sk-5c79877413f346ceb7d4fdbf6daed4e6"
+    llm_temperature: float = 0.7
+    llm_max_tokens: int = 512
+    llm_top_p: float = 1.0
+    llm_active_agents: int = 3
+    llm_timeout_ms: int = 30000
+    llm_max_retries: int = 1
+    llm_retry_backoff_ms: int = 300
+    llm_max_actions_per_minute: int = 240
+    llm_fallback_on_error: bool = True
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -537,6 +551,20 @@ class SimulationConfig:
             "scenarioText": self.scenario_text,
             "experimentName": self.experiment_name,
             "designReady": self.design_ready,
+            "llmEnabled": self.llm_enabled,
+            "llmProvider": self.llm_provider,
+            "llmModel": self.llm_model,
+            "llmBaseUrl": self.llm_base_url,
+            "llmApiKey": self.llm_api_key,
+            "llmTemperature": self.llm_temperature,
+            "llmMaxTokens": self.llm_max_tokens,
+            "llmTopP": self.llm_top_p,
+            "llmActiveAgents": self.llm_active_agents,
+            "llmTimeoutMs": self.llm_timeout_ms,
+            "llmMaxRetries": self.llm_max_retries,
+            "llmRetryBackoffMs": self.llm_retry_backoff_ms,
+            "llmMaxActionsPerMinute": self.llm_max_actions_per_minute,
+            "llmFallbackOnError": self.llm_fallback_on_error,
         }
 
     @classmethod
@@ -551,6 +579,20 @@ class SimulationConfig:
             scenario_text=data.get("scenarioText", data.get("scenario_text", "")),
             experiment_name=data.get("experimentName", data.get("experiment_name", "experiment_1")),
             design_ready=data.get("designReady", data.get("design_ready", False)),
+            llm_enabled=data.get("llmEnabled", data.get("llm_enabled", True)),
+            llm_provider=data.get("llmProvider", data.get("llm_provider", "deepseek")),
+            llm_model=data.get("llmModel", data.get("llm_model", "deepseek-chat")),
+            llm_base_url=data.get("llmBaseUrl", data.get("llm_base_url", "https://api.deepseek.com/v1")),
+            llm_api_key=data.get("llmApiKey", data.get("llm_api_key", "sk-5c79877413f346ceb7d4fdbf6daed4e6")),
+            llm_temperature=float(data.get("llmTemperature", data.get("llm_temperature", 0.7))),
+            llm_max_tokens=int(data.get("llmMaxTokens", data.get("llm_max_tokens", 512))),
+            llm_top_p=float(data.get("llmTopP", data.get("llm_top_p", 1.0))),
+            llm_active_agents=int(data.get("llmActiveAgents", data.get("llm_active_agents", 3))),
+            llm_timeout_ms=int(data.get("llmTimeoutMs", data.get("llm_timeout_ms", 30000))),
+            llm_max_retries=int(data.get("llmMaxRetries", data.get("llm_max_retries", 1))),
+            llm_retry_backoff_ms=int(data.get("llmRetryBackoffMs", data.get("llm_retry_backoff_ms", 300))),
+            llm_max_actions_per_minute=int(data.get("llmMaxActionsPerMinute", data.get("llm_max_actions_per_minute", 240))),
+            llm_fallback_on_error=bool(data.get("llmFallbackOnError", data.get("llm_fallback_on_error", True))),
         )
 
 

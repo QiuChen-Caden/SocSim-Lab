@@ -212,6 +212,20 @@ export type SimulationConfig = {
   scenarioText: string
   experimentName: string
   designReady: boolean
+  llmEnabled: boolean
+  llmProvider: string
+  llmModel: string
+  llmBaseUrl: string
+  llmApiKey: string
+  llmTemperature: number
+  llmMaxTokens: number
+  llmTopP: number
+  llmActiveAgents: number
+  llmTimeoutMs: number
+  llmMaxRetries: number
+  llmRetryBackoffMs: number
+  llmMaxActionsPerMinute: number
+  llmFallbackOnError: boolean
 }
 
 export type InterventionRecord = {

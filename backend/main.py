@@ -9,6 +9,7 @@ import time
 import asyncio
 import re
 import math
+import sys
 from typing import Optional, List, Any
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -65,6 +66,11 @@ from algorithms import (
 
 from websocket import manager as ws_manager
 
+# Ensure Unicode logs do not crash on Windows GBK output.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 # ============= Configuration =============
 
@@ -82,14 +88,17 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+DEFAULT_DEEPSEEK_KEY = "sk-5c79877413f346ceb7d4fdbf6daed4e6"
 
 # Import OASIS integration
 from oasis_integration import (
     initialize_oasis_simulation,
     run_simulation_step,
+    get_simulation_metrics,
     get_simulation_posts,
     get_simulation_agents,
     get_simulation_agent_state,
+    update_simulation_config,
     close_simulation,
     OASIS_AVAILABLE,
 )
@@ -108,11 +117,26 @@ async def lifespan(app: FastAPI):
     init_db()
     print("Database initialized")
 
+    # Load persisted simulation state early so OASIS can consume runtime config.
+    global _sim_state
+    _sim_state = get_simulation_state()
+    # Enforce DeepSeek runtime defaults for this project unless user overrides later.
+    _sim_state.config.llm_enabled = True
+    _sim_state.config.llm_provider = "deepseek"
+    _sim_state.config.llm_model = _sim_state.config.llm_model or "deepseek-chat"
+    _sim_state.config.llm_base_url = _sim_state.config.llm_base_url or "https://api.deepseek.com/v1"
+    if not _sim_state.config.llm_api_key:
+        _sim_state.config.llm_api_key = DEFAULT_DEEPSEEK_KEY
+    save_simulation_state(_sim_state)
+
     # Initialize OASIS if available
     oasis_initialized = False
     if settings.use_oasis and OASIS_AVAILABLE:
         print("Initializing OASIS simulation...")
-        oasis_initialized = await initialize_oasis_simulation(PERSONAS_PATH)
+        oasis_initialized = await initialize_oasis_simulation(
+            PERSONAS_PATH,
+            runtime_config=_sim_state.config.to_dict(),
+        )
         if oasis_initialized:
             print("OASIS simulation initialized successfully")
         else:
@@ -121,8 +145,6 @@ async def lifespan(app: FastAPI):
         print("OASIS not available, using fallback ticker")
 
     # Auto-start simulation: set is_running to True on startup
-    global _sim_state
-    _sim_state = get_simulation_state()
     _sim_state.is_running = True
     save_simulation_state(_sim_state)
     print(f"Simulation auto-started: tick={_sim_state.tick}, is_running={_sim_state.is_running}")
@@ -260,21 +282,32 @@ _ticker_lock = asyncio.Lock()
 
 def _get_action_description(action_type: str, action_args: dict) -> str:
     """Convert OASIS action type to readable description."""
-    if "CREATE_POST" in action_type:
+    normalized = str(action_type).upper()
+    if "CREATE_POST" in normalized:
         content = action_args.get("content", "")
         if content:
             return f"posted: {content[:50]}..."
         return "posted"
-    elif "REFRESH" in action_type:
+    elif "REFRESH" in normalized:
         return "refreshed recommendation feed"
-    elif "DO_NOTHING" in action_type:
+    elif "DO_NOTHING" in normalized:
         return "observing"
-    elif "LIKE" in action_type:
+    elif "LIKE" in normalized:
         return "liked a post"
-    elif "SHARE" in action_type:
+    elif "SHARE" in normalized:
         return "shared a post"
-    elif "COMMENT" in action_type:
+    elif "COMMENT" in normalized:
         return "commented on a post"
+    elif "FOLLOW" in normalized:
+        return "followed another user"
+    elif "UNFOLLOW" in normalized:
+        return "unfollowed a user"
+    elif "DISLIKE" in normalized:
+        return "disliked a post"
+    elif "REPORT" in normalized:
+        return "reported content"
+    elif "LLM_ACTION" in normalized:
+        return "performed autonomous LLM action"
     else:
         return f"action: {action_type}"
 
@@ -485,7 +518,16 @@ async def simulation_ticker():
                             actions = result.get('actions', 0)
                             active_agents = result.get('active_agents', 0)
                             behaviors = result.get('behaviors', [])  # Get detailed behaviors
-                            print(f"[OASIS] Tick {_sim_state.tick}: {actions} actions, {active_agents} active agents")
+                            llm_call_logs = result.get("llm_call_logs", [])
+                            metrics = result.get("metrics", {})
+                            latency_ms = metrics.get("last_tick_latency_ms", 0.0)
+                            retries = metrics.get("retries_total", 0)
+                            fallback_ticks = metrics.get("fallback_ticks", 0)
+                            print(
+                                f"[OASIS] Tick {_sim_state.tick}: {actions} actions, "
+                                f"{active_agents} active agents, latency={latency_ms}ms, "
+                                f"retries={retries}, fallback_ticks={fallback_ticks}"
+                            )
 
                             # Create log entry for tick summary (will appear in Events)
                             import uuid
@@ -496,7 +538,21 @@ async def simulation_ticker():
                                 type=EventType.INTERVENTION,  # Use INTERVENTION for system events
                                 title=f"[OASIS] Tick {_sim_state.tick}: {actions} actions, {active_agents} active agents",
                                 agent_id=None,
-                                payload={"actions": actions, "active_agents": active_agents}
+                                payload={
+                                    "actions": actions,
+                                    "active_agents": active_agents,
+                                    "metrics": {
+                                        "lastTickLatencyMs": metrics.get("last_tick_latency_ms", 0.0),
+                                        "avgTickLatencyMs": metrics.get("avg_tick_latency_ms", 0.0),
+                                        "ticksSuccess": metrics.get("ticks_success", 0),
+                                        "ticksFailed": metrics.get("ticks_failed", 0),
+                                        "llmTimeouts": metrics.get("llm_timeouts", 0),
+                                        "llmErrors": metrics.get("llm_errors", 0),
+                                        "retriesTotal": metrics.get("retries_total", 0),
+                                        "fallbackTicks": metrics.get("fallback_ticks", 0),
+                                        "lastError": metrics.get("last_error", ""),
+                                    },
+                                }
                             )
                             save_timeline_event(tick_summary_event)
                             await ws_manager.emit_event_created(tick_summary_event.to_dict())
@@ -525,6 +581,21 @@ async def simulation_ticker():
                                 behavior_post.id = persisted_id
                                 await ws_manager.emit_post_created(behavior_post.to_dict())
 
+                                # Emit fine-grained timeline event for each agent action.
+                                behavior_event = TimelineEvent(
+                                    id=str(uuid.uuid4()),
+                                    tick=_sim_state.tick,
+                                    type=EventType.AGENT_ACTION,
+                                    title=f"{agent_name}: {action_desc}",
+                                    agent_id=agent_id if agent_id > 0 else None,
+                                    payload={
+                                        "actionType": action_type,
+                                        "actionArgs": action_args,
+                                    },
+                                )
+                                save_timeline_event(behavior_event)
+                                await ws_manager.emit_event_created(behavior_event.to_dict())
+
                                 behavior_log = LogLine(
                                     id=str(uuid.uuid4()),
                                     tick=_sim_state.tick,
@@ -535,6 +606,42 @@ async def simulation_ticker():
                                 save_log_line(behavior_log)
                                 await ws_manager.emit_log_added(behavior_log.to_dict())
                                 print(f"[Ticker] {agent_name}: {action_desc}")
+
+                            # Sync LLM runtime call logs to both log stream and feed.
+                            for call_log in llm_call_logs:
+                                log_level_raw = str(call_log.get("level", "info")).lower()
+                                if log_level_raw == "ok":
+                                    log_level = LogLevel.OK
+                                elif log_level_raw == "error":
+                                    log_level = LogLevel.ERROR
+                                else:
+                                    log_level = LogLevel.INFO
+
+                                message = str(call_log.get("message", ""))
+                                log_text = f"[LLM] {message}"
+                                llm_log = LogLine(
+                                    id=str(uuid.uuid4()),
+                                    tick=_sim_state.tick,
+                                    level=log_level,
+                                    text=log_text,
+                                    agent_id=None,
+                                )
+                                save_log_line(llm_log)
+                                await ws_manager.emit_log_added(llm_log.to_dict())
+
+                                llm_feed = FeedPost(
+                                    id=str(uuid.uuid4()),
+                                    tick=_sim_state.tick,
+                                    author_id=0,
+                                    author_name="LLM Engine",
+                                    emotion=0.0,
+                                    content=f"[LLM][{log_level_raw}] {message}",
+                                    likes=0,
+                                )
+                                persisted_id = save_feed_post(llm_feed)
+                                llm_feed.id = persisted_id
+                                await ws_manager.emit_post_created(llm_feed.to_dict())
+                                print(f"[LLM] {message}")
                             # Also sync actual posts to feed database
                             try:
                                 new_posts = await get_simulation_posts(limit=20)
@@ -1029,6 +1136,8 @@ async def patch_state(
         merged_config = state.config.to_dict()
         merged_config.update(config)
         state.config = SimulationConfig.from_dict(merged_config)
+        if settings.use_oasis and OASIS_AVAILABLE:
+            await update_simulation_config(state.config.to_dict())
 
     save_simulation_state(state)
     _sim_state = state
@@ -1124,6 +1233,30 @@ async def set_simulation_tick(tick: int = Body(..., embed=True)):
     await ws_manager.emit_tick_update(_sim_state.tick, _sim_state.is_running, _sim_state.speed)
 
     return {"status": "ok", "tick": _sim_state.tick}
+
+
+@app.get("/api/simulation/metrics")
+async def get_simulation_runtime_metrics():
+    """Get runtime resilience/observability metrics for OASIS simulation."""
+    if settings.use_oasis and OASIS_AVAILABLE:
+        return await get_simulation_metrics()
+    return {
+        "ticks_total": 0,
+        "ticks_success": 0,
+        "ticks_failed": 0,
+        "llm_timeouts": 0,
+        "llm_errors": 0,
+        "retries_total": 0,
+        "fallback_ticks": 0,
+        "actions_executed_total": 0,
+        "last_tick_latency_ms": 0.0,
+        "avg_tick_latency_ms": 0.0,
+        "last_error": "oasis disabled",
+        "action_counts": {},
+        "rate_limit_window_actions": 0,
+        "llm_enabled": False,
+        "llm_provider": "stub",
+    }
 
 
 # ============= Events Endpoints =============
@@ -1547,7 +1680,7 @@ if __name__ == "__main__":
     uvicorn.run(
         "main:app",
         host="127.0.0.1",
-        port=8765,
+        port=8000,
         reload=False,
         log_level="info",
     )

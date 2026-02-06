@@ -82,7 +82,7 @@ export function FeedView() {
       }))
 
     const logItems: StreamItem[] = sim.state.logs
-      .filter((l) => l.text.includes('[Ticker]') || l.agentId != null)
+      .filter((l) => l.text.includes('[Ticker]') || l.text.includes('[LLM]') || l.agentId != null)
       .map((l) => ({
         kind: 'log',
         id: `log-${l.id}`,
@@ -168,7 +168,7 @@ export function FeedView() {
               ))}
             </>
           ) : (
-            filteredStream.slice(0, 120).map((item) => {
+            filteredStream.slice(0, 400).map((item) => {
               if (item.kind === 'post') {
                 return (
                   <div key={item.id} className="post">

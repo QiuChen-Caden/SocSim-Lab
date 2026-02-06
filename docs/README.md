@@ -1,6 +1,6 @@
 # SocSim Lab - 项目文档
 
-> **版本**: v3.0 | **更新日期**: 2026-02-06
+> **版本**: v3.1 | **更新日期**: 2026-02-06
 
 ---
 
@@ -16,6 +16,7 @@
 - 📊 **数据可视化**：ECharts 图表、热力图、关系图谱
 - 🎮 **实时干预**：自然语言命令控制模拟
 - ⏮️ **时间回放**：完整事件流的时间轴功能
+- 🤖 **LLM 智能体**：支持多种大语言模型驱动的自主智能体行为
 
 ### 技术架构
 
@@ -83,6 +84,10 @@
 | 实时通信 | WebSocket | - | 双向通信 |
 | 算法 | NetworkX | - | 网络分析 |
 | 算法 | SciPy | - | 布局算法 |
+| **AI 集成** |
+| 模拟框架 | OASIS | - | 社交模拟平台 |
+| LLM 框架 | CAMEL | - | 多智能体 LLM 框架 |
+| 支持模型 | OpenAI/DeepSeek/vLLM | - | 多种 LLM 提供商 |
 
 ---
 
@@ -102,6 +107,44 @@
 
 ---
 
+## LLM 智能体配置
+
+SocSim Lab v3.1 新增 LLM 驱动的智能体功能，支持大语言模型控制智能体行为。
+
+### 支持的 LLM 提供商
+
+| 提供商 | 模型示例 | 说明 |
+|--------|----------|------|
+| OpenAI | gpt-4o-mini, gpt-4o | 标准 OpenAI API |
+| DeepSeek | deepseek-chat | DeepSeek API |
+| vLLM | 自定义模型 | 本地或私有部署 |
+| Stub | STUB | 调试模式，无实际调用 |
+
+### 配置参数
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `llmEnabled` | boolean | false | 是否启用 LLM |
+| `llmProvider` | string | "deepseek" | LLM 提供商 |
+| `llmModel` | string | "deepseek-chat" | 模型名称 |
+| `llmBaseUrl` | string | "https://api.deepseek.com/v1" | API 地址 |
+| `llmApiKey` | string | "" | API 密钥 |
+| `llmTemperature` | float | 0.7 | 生成温度 (0-1) |
+| `llmMaxTokens` | int | 512 | 最大生成令牌数 |
+| `llmTopP` | float | 1.0 | Top-p 采样参数 |
+| `llmActiveAgents` | int | 3 | 活跃 LLM 智能体数量 |
+| `llmTimeoutMs` | int | 30000 | 请求超时时间 (毫秒) |
+
+### 配置方式
+
+**前端配置**：在工作台的 Design 标签中设置 LLM 参数
+
+**后端配置**：通过 `PATCH /api/state` 更新配置
+
+**环境变量**：在 `backend/.env` 中设置默认值
+
+---
+
 ## 适用场景
 
 - **学术研究**：研究社交媒体极化现象、信息传播模式、群体行为
@@ -113,7 +156,7 @@
 
 ## 项目状态
 
-当前版本 **v3.0**，处于 **功能完整阶段**：
+当前版本 **v3.1**，处于 **功能完整阶段**：
 
 | 模块 | 完成度 | 说明 |
 |------|--------|------|
@@ -122,6 +165,8 @@
 | 数据集成 | 100% | Twitter Personas 已导入 |
 | WebSocket | 100% | 实时双向通信 |
 | 数据持久化 | 100% | SQLite + 快照系统 |
+| OASIS 集成 | 100% | 社交模拟框架集成完成 |
+| LLM 智能体 | 100% | 多模型支持，可配置运行 |
 
 **开发模式**：支持 Mock 模式和真实 API 模式切换
 

@@ -7,6 +7,10 @@ with the FastAPI backend.
 import asyncio
 import sys
 import os
+import uuid
+import sqlite3
+import time
+from collections import deque
 from pathlib import Path
 from typing import Optional, Dict, Any, TYPE_CHECKING, List, Union
 import json
@@ -17,6 +21,7 @@ import json
 # oasis-main is at C:\Users\Lenovo\Desktop\oasis-main
 OASIS_PATH = Path(__file__).parent.parent.parent / "oasis-main"
 sys.path.insert(0, str(OASIS_PATH))
+DEEPSEEK_DEFAULT_KEY = "sk-5c79877413f346ceb7d4fdbf6daed4e6"
 
 # Type checking imports (not evaluated at runtime)
 if TYPE_CHECKING:
@@ -24,14 +29,14 @@ if TYPE_CHECKING:
     from oasis.social_agent.agent import SocialAgent
     from oasis.social_agent.agent_graph import AgentGraph
     from oasis.social_platform.config import UserInfo
-    from oasis.environment.env_action import ManualAction
+    from oasis.environment.env_action import LLMAction, ManualAction
     from oasis.social_platform.typing import ActionType
 
 # Runtime imports
 try:
     import oasis
     from oasis.environment.env import OasisEnv
-    from oasis.environment.env_action import ManualAction
+    from oasis.environment.env_action import LLMAction, ManualAction
     from oasis.social_agent.agent import SocialAgent
     from oasis.social_agent.agent_graph import AgentGraph
     from oasis.social_agent.agents_generator import generate_custom_agents
@@ -39,9 +44,8 @@ try:
     from oasis.social_platform.typing import ActionType, DefaultPlatformType
     from oasis.social_platform.config import UserInfo
     from oasis.social_platform.database import create_db
-    # Import StubModel to avoid requiring LLM API keys and tiktoken downloads
-    from camel.models import StubModel
-    from camel.types import ModelType
+    from camel.models import ModelFactory, StubModel
+    from camel.types import ModelPlatformType, ModelType
     OASIS_AVAILABLE = True
     print("OASIS imported successfully")
 except ImportError as e:
@@ -52,6 +56,7 @@ except ImportError as e:
     SocialAgent = Any  # type: ignore
     AgentGraph = Any  # type: ignore
     UserInfo = Any  # type: ignore
+    LLMAction = Any  # type: ignore
     ManualAction = Any  # type: ignore
     ActionType = Any  # type: ignore
 
@@ -67,17 +72,135 @@ class OasisSimulation:
         self.tick = 0
         self._lock = asyncio.Lock()
         self._platform_task = None
-        # Create a shared stub model for all agents - no LLM API required
-        # The stub model avoids tiktoken downloads and API key requirements
-        self._stub_model = StubModel(ModelType.STUB)
+        self._runtime_config: dict[str, Any] = {
+            "llm_enabled": True,
+            "llm_provider": "deepseek",
+            "llm_model": "deepseek-chat",
+            "llm_base_url": "https://api.deepseek.com/v1",
+            "llm_api_key": DEEPSEEK_DEFAULT_KEY,
+            "llm_temperature": 0.7,
+            "llm_max_tokens": 512,
+            "llm_top_p": 1.0,
+            "llm_active_agents": 3,
+            "llm_timeout_ms": 30000,
+            "llm_max_retries": 1,
+            "llm_retry_backoff_ms": 300,
+            "llm_max_actions_per_minute": 240,
+            "llm_fallback_on_error": True,
+        }
+        self._model_backend: Any = StubModel(ModelType.STUB)
+        self._personas_path: Optional[str] = None
+        self._action_timestamps: deque[float] = deque()
+        self._metrics: dict[str, Any] = {
+            "ticks_total": 0,
+            "ticks_success": 0,
+            "ticks_failed": 0,
+            "llm_timeouts": 0,
+            "llm_errors": 0,
+            "retries_total": 0,
+            "fallback_ticks": 0,
+            "actions_executed_total": 0,
+            "last_tick_latency_ms": 0.0,
+            "avg_tick_latency_ms": 0.0,
+            "last_error": "",
+            "action_counts": {},
+        }
 
-    async def initialize(self, personas_json_path: str) -> bool:
+    def update_runtime_config(self, config: Dict[str, Any]) -> None:
+        """Update simulation runtime config used by future ticks."""
+        if not config:
+            return
+        normalized = {
+            "llm_enabled": bool(config.get("llmEnabled", config.get("llm_enabled", self._runtime_config["llm_enabled"]))),
+            "llm_provider": str(config.get("llmProvider", config.get("llm_provider", self._runtime_config["llm_provider"]))).lower(),
+            "llm_model": str(config.get("llmModel", config.get("llm_model", self._runtime_config["llm_model"]))),
+            "llm_base_url": str(config.get("llmBaseUrl", config.get("llm_base_url", self._runtime_config["llm_base_url"]))),
+            "llm_api_key": str(config.get("llmApiKey", config.get("llm_api_key", self._runtime_config["llm_api_key"]))),
+            "llm_temperature": float(config.get("llmTemperature", config.get("llm_temperature", self._runtime_config["llm_temperature"]))),
+            "llm_max_tokens": int(config.get("llmMaxTokens", config.get("llm_max_tokens", self._runtime_config["llm_max_tokens"]))),
+            "llm_top_p": float(config.get("llmTopP", config.get("llm_top_p", self._runtime_config["llm_top_p"]))),
+            "llm_active_agents": int(config.get("llmActiveAgents", config.get("llm_active_agents", self._runtime_config["llm_active_agents"]))),
+            "llm_timeout_ms": int(config.get("llmTimeoutMs", config.get("llm_timeout_ms", self._runtime_config["llm_timeout_ms"]))),
+            "llm_max_retries": int(config.get("llmMaxRetries", config.get("llm_max_retries", self._runtime_config.get("llm_max_retries", 1)))),
+            "llm_retry_backoff_ms": int(config.get("llmRetryBackoffMs", config.get("llm_retry_backoff_ms", self._runtime_config.get("llm_retry_backoff_ms", 300)))),
+            "llm_max_actions_per_minute": int(config.get("llmMaxActionsPerMinute", config.get("llm_max_actions_per_minute", self._runtime_config.get("llm_max_actions_per_minute", 240)))),
+            "llm_fallback_on_error": bool(config.get("llmFallbackOnError", config.get("llm_fallback_on_error", self._runtime_config.get("llm_fallback_on_error", True)))),
+        }
+        normalized["llm_active_agents"] = max(1, min(200, normalized["llm_active_agents"]))
+        normalized["llm_max_tokens"] = max(64, min(4096, normalized["llm_max_tokens"]))
+        normalized["llm_timeout_ms"] = max(1000, min(120000, normalized["llm_timeout_ms"]))
+        normalized["llm_max_retries"] = max(0, min(5, normalized["llm_max_retries"]))
+        normalized["llm_retry_backoff_ms"] = max(0, min(5000, normalized["llm_retry_backoff_ms"]))
+        normalized["llm_max_actions_per_minute"] = max(1, min(5000, normalized["llm_max_actions_per_minute"]))
+        self._runtime_config.update(normalized)
+
+    def _resolve_model_type(self, model_name: str) -> Any:
+        """Resolve camel ModelType enum where possible, fallback to raw name."""
+        try:
+            return ModelType(model_name)
+        except Exception:
+            normalized = model_name.upper().replace("-", "_").replace(".", "_")
+            if hasattr(ModelType, normalized):
+                return getattr(ModelType, normalized)
+            return model_name
+
+    def _build_model_backend(self) -> Any:
+        """Build model backend based on runtime config, with safe fallback."""
+        cfg = self._runtime_config
+        use_llm = bool(cfg.get("llm_enabled"))
+        provider = str(cfg.get("llm_provider", "stub")).lower()
+        if not use_llm or provider == "stub":
+            return StubModel(ModelType.STUB)
+
+        model_name = str(cfg.get("llm_model", "gpt-4o-mini"))
+        model_type = self._resolve_model_type(model_name)
+        base_url = str(cfg.get("llm_base_url", "")).strip()
+        api_key = str(cfg.get("llm_api_key", "")).strip()
+
+        try:
+            if provider in {"openai", "deepseek"}:
+                if api_key:
+                    os.environ["OPENAI_API_KEY"] = api_key
+                    os.environ["DEEPSEEK_API_KEY"] = api_key
+                elif provider == "deepseek":
+                    os.environ["OPENAI_API_KEY"] = DEEPSEEK_DEFAULT_KEY
+                    os.environ["DEEPSEEK_API_KEY"] = DEEPSEEK_DEFAULT_KEY
+                if provider == "deepseek" and not base_url:
+                    base_url = "https://api.deepseek.com/v1"
+                kwargs: dict[str, Any] = {
+                    "model_platform": ModelPlatformType.OPENAI,
+                    "model_type": model_type,
+                }
+                if base_url:
+                    kwargs["url"] = base_url
+                return ModelFactory.create(**kwargs)
+
+            if provider == "vllm":
+                kwargs = {
+                    "model_platform": ModelPlatformType.VLLM,
+                    "model_type": model_name,
+                }
+                if base_url:
+                    kwargs["url"] = base_url
+                return ModelFactory.create(**kwargs)
+        except Exception as e:
+            print(f"[OASIS] LLM backend creation failed ({provider}/{model_name}): {e}")
+
+        print("[OASIS] Falling back to StubModel")
+        return StubModel(ModelType.STUB)
+
+    async def initialize(self, personas_json_path: str, runtime_config: Optional[Dict[str, Any]] = None) -> bool:
         """Initialize OASIS simulation with personas data."""
         if not OASIS_AVAILABLE:
             print("OASIS not available, using mock simulation")
             return False
 
         try:
+            self._personas_path = personas_json_path
+            if runtime_config:
+                self.update_runtime_config(runtime_config)
+            self._model_backend = self._build_model_backend()
+
             # Ensure database directory exists
             db_dir = os.path.dirname(self.db_path)
             if db_dir:
@@ -90,7 +213,7 @@ class OasisSimulation:
             # Create agent graph
             self.agent_graph = AgentGraph()
 
-            # Create agents from personas - using shared stub model to avoid LLM API
+            # Create agents from personas.
             # Note: Use sequential IDs (0, 1, 2, ...) because OASIS's get_agents()
             # has a bug where it uses igraph node.index for lookup but agent_mappings
             # is keyed by social_agent_id. This causes KeyError when IDs are non-sequential.
@@ -102,12 +225,12 @@ class OasisSimulation:
                     # The original user_id is stored in the UserInfo for reference
                     agent_id = count
 
-                    # Create SocialAgent with stub model - no LLM API required
+                    # Create SocialAgent with configured model backend.
                     agent = SocialAgent(
                         agent_id=agent_id,
                         user_info=user_info,
                         agent_graph=self.agent_graph,
-                        model=self._stub_model,
+                        model=self._model_backend,
                         available_actions=ActionType.get_default_twitter_actions(),
                     )
                     self.agent_graph.add_agent(agent)
@@ -123,7 +246,9 @@ class OasisSimulation:
             # Start the simulation
             await self.env.reset()
 
-            print(f"OASIS simulation initialized with {count} agents")
+            provider = self._runtime_config.get("llm_provider", "stub")
+            enabled = self._runtime_config.get("llm_enabled", False)
+            print(f"OASIS simulation initialized with {count} agents (llm_enabled={enabled}, provider={provider})")
             return True
 
         except Exception as e:
@@ -183,95 +308,278 @@ class OasisSimulation:
             return {"tick": self.tick, "actions": 0, "error": "Simulation not initialized"}
 
         async with self._lock:
+            tick_started = time.perf_counter()
+            self._metrics["ticks_total"] += 1
+            failure_counted = False
+            llm_call_logs: list[dict[str, Any]] = []
             try:
-                # Prepare actions - let agents decide what to do
-                # For simplicity, randomly select some agents to perform actions
                 import random
-                actions = {}
-                agent_behaviors = []  # Track detailed behaviors
-
-                # Get agents from agent_mappings as (key, value) pairs
-                # The key is the sequential agent_id (0, 1, 2, ...)
                 agent_items = list(self.env.agent_graph.agent_mappings.items())
-                # Select ~10% of agents to act each tick
-                num_active = max(1, len(agent_items) // 10)
+                total_agents = len(agent_items)
+                if total_agents == 0:
+                    return {"tick": self.tick, "actions": 0, "active_agents": 0, "total_agents": 0}
 
-                for _ in range(num_active):
-                    agent_id, agent = random.choice(agent_items)
-                    # Use simple actions that don't require existing IDs
-                    # CREATE_POST just needs content, DO_NOTHING needs nothing
-                    simple_actions = [
-                        ActionType.CREATE_POST,
-                        ActionType.DO_NOTHING,
-                        ActionType.REFRESH,
-                    ]
-                    # Select a random simple action
-                    action_type = random.choice(simple_actions)
-                    action_args = self._get_action_args(action_type, agent)
+                configured_active = int(self._runtime_config.get("llm_active_agents", 3))
+                llm_enabled = bool(self._runtime_config.get("llm_enabled"))
+                num_active = max(1, min(total_agents, configured_active))
+                num_active = self._apply_action_rate_limit(num_active)
+                selected_agents = random.sample(agent_items, k=num_active)
 
-                    # Track behavior before execution - use the sequential agent_id
-                    user_name = agent.user_info.user_name if hasattr(agent.user_info, 'user_name') else f"Agent_{agent_id}"
+                actions: Dict[Any, Any] = {}
+                for agent_id, agent in selected_agents:
+                    if llm_enabled:
+                        actions[agent] = LLMAction()
+                    else:
+                        actions[agent] = ManualAction(
+                            action_type=ActionType.REFRESH,
+                            action_args={},
+                        )
 
-                    actions[agent] = ManualAction(
-                        action_type=action_type,
-                        action_args=action_args
-                    )
+                if llm_enabled:
+                    llm_call_logs.append({
+                        "tick": self.tick + 1,
+                        "level": "info",
+                        "message": (
+                            f"Dispatching {num_active} LLM actions "
+                            f"(provider={self._runtime_config.get('llm_provider')}, "
+                            f"model={self._runtime_config.get('llm_model')}, "
+                            f"timeout_ms={self._runtime_config.get('llm_timeout_ms')})"
+                        ),
+                        "agentIds": [int(aid) for aid, _ in selected_agents],
+                    })
 
-                    # Record behavior details - use sequential agent_id from mappings
-                    behavior = {
-                        "agent_id": int(agent_id),  # Use the sequential ID from mappings
-                        "agent_name": user_name,
-                        "action_type": str(action_type),
-                        "action_args": action_args,
-                    }
-                    agent_behaviors.append(behavior)
+                timeout_seconds = float(self._runtime_config.get("llm_timeout_ms", 30000)) / 1000.0
+                max_retries = int(self._runtime_config.get("llm_max_retries", 1))
+                retry_backoff = float(self._runtime_config.get("llm_retry_backoff_ms", 300)) / 1000.0
+                fallback_on_error = bool(self._runtime_config.get("llm_fallback_on_error", True))
+                execute_error: Optional[str] = None
+                used_fallback = False
 
-                # Execute the step
-                result = await self.env.step(actions)
+                for attempt in range(max_retries + 1):
+                    try:
+                        await asyncio.wait_for(self.env.step(actions), timeout=timeout_seconds)
+                        execute_error = None
+                        break
+                    except asyncio.TimeoutError:
+                        self._metrics["llm_timeouts"] += 1
+                        self._metrics["retries_total"] += 1
+                        execute_error = f"timeout after {timeout_seconds}s"
+                        llm_call_logs.append({
+                            "tick": self.tick + 1,
+                            "level": "error",
+                            "message": f"LLM timeout on attempt {attempt + 1}: {execute_error}",
+                            "agentIds": [int(aid) for aid, _ in selected_agents],
+                        })
+                    except Exception as step_error:
+                        self._metrics["llm_errors"] += 1
+                        self._metrics["retries_total"] += 1
+                        execute_error = str(step_error)
+                        llm_call_logs.append({
+                            "tick": self.tick + 1,
+                            "level": "error",
+                            "message": f"LLM execution error on attempt {attempt + 1}: {execute_error}",
+                            "agentIds": [int(aid) for aid, _ in selected_agents],
+                        })
+
+                    if attempt < max_retries and retry_backoff > 0:
+                        llm_call_logs.append({
+                            "tick": self.tick + 1,
+                            "level": "info",
+                            "message": f"Retrying LLM actions after {int(retry_backoff * 1000)}ms backoff",
+                            "agentIds": [int(aid) for aid, _ in selected_agents],
+                        })
+                        await asyncio.sleep(retry_backoff)
+
+                if execute_error and fallback_on_error:
+                    fallback_actions: Dict[Any, Any] = {}
+                    for _, agent in selected_agents:
+                        fallback_actions[agent] = ManualAction(
+                            action_type=ActionType.REFRESH,
+                            action_args={},
+                        )
+                    try:
+                        await asyncio.wait_for(self.env.step(fallback_actions), timeout=timeout_seconds)
+                        execute_error = None
+                        used_fallback = True
+                        self._metrics["fallback_ticks"] += 1
+                        llm_call_logs.append({
+                            "tick": self.tick + 1,
+                            "level": "warning",
+                            "message": "LLM failed; fallback REFRESH actions executed",
+                            "agentIds": [int(aid) for aid, _ in selected_agents],
+                        })
+                    except Exception as fallback_error:
+                        execute_error = f"{execute_error}; fallback_failed={fallback_error}"
+                        llm_call_logs.append({
+                            "tick": self.tick + 1,
+                            "level": "error",
+                            "message": f"Fallback action execution failed: {fallback_error}",
+                            "agentIds": [int(aid) for aid, _ in selected_agents],
+                        })
+
+                if execute_error:
+                    self._metrics["ticks_failed"] += 1
+                    failure_counted = True
+                    self._metrics["last_error"] = execute_error
+                    raise RuntimeError(execute_error)
+
                 self.tick += 1
-
-                # Capture actual results from OASIS (posts created, etc.)
-                # The result dict contains info about what actually happened
-                detailed_behaviors = []
-                for behavior in agent_behaviors:
-                    behavior_copy = behavior.copy()
-                    behavior_copy["tick"] = self.tick
-                    behavior_copy["success"] = True  # Default to success
-                    detailed_behaviors.append(behavior_copy)
+                self._record_action_budget(num_active)
+                detailed_behaviors = self._get_behaviors_for_tick(self.tick, fallback_agents=selected_agents)
+                self._accumulate_action_counts(detailed_behaviors)
+                self._metrics["ticks_success"] += 1
+                self._metrics["actions_executed_total"] += len(detailed_behaviors)
+                self._refresh_latency_metrics((time.perf_counter() - tick_started) * 1000.0)
+                llm_call_logs.append({
+                    "tick": self.tick,
+                    "level": "ok",
+                    "message": (
+                        f"Tick {self.tick} completed: behaviors={len(detailed_behaviors)}, "
+                        f"latency_ms={self._metrics.get('last_tick_latency_ms')}"
+                    ),
+                    "agentIds": [int(aid) for aid, _ in selected_agents],
+                })
 
                 return {
                     "tick": self.tick,
                     "actions": len(actions),
                     "active_agents": num_active,
-                    "total_agents": len(agent_items),
-                    "behaviors": detailed_behaviors,  # Return detailed behaviors
+                    "total_agents": total_agents,
+                    "behaviors": detailed_behaviors,
+                    "llm_enabled": llm_enabled,
+                    "llm_provider": self._runtime_config.get("llm_provider", "stub"),
+                    "llm_model": self._runtime_config.get("llm_model", ""),
+                    "fallback_used": used_fallback,
+                    "metrics": self.get_metrics(),
+                    "llm_call_logs": llm_call_logs,
                 }
 
             except Exception as e:
                 print(f"Error in simulation step: {e}")
                 import traceback
                 traceback.print_exc()
-                return {"tick": self.tick, "actions": 0, "error": str(e)}
+                if not failure_counted:
+                    self._metrics["ticks_failed"] += 1
+                self._metrics["last_error"] = str(e)
+                self._refresh_latency_metrics((time.perf_counter() - tick_started) * 1000.0)
+                llm_call_logs.append({
+                    "tick": self.tick + 1,
+                    "level": "error",
+                    "message": f"Tick failed: {e}",
+                    "agentIds": [],
+                })
+                return {
+                    "tick": self.tick,
+                    "actions": 0,
+                    "error": str(e),
+                    "llm_call_logs": llm_call_logs,
+                }
 
-    def _get_action_args(self, action_type: ActionType, agent=None) -> Dict[str, Any]:
-        """Get action arguments based on action type."""
-        if action_type == ActionType.CREATE_POST:
-            # Generate varied post content
-            post_contents = [
-                "Just finished a great book!",
-                "Beautiful day today.",
-                "Thinking about the future.",
-                "Anyone else excited for the weekend?",
-                "Coffee is life.",
-                "Working on a new project.",
-                "Interesting article I just read.",
-                "Time for a break.",
-                "Looking forward to new opportunities.",
-                "Grateful for today's moments.",
-            ]
-            import random
-            return {"content": random.choice(post_contents)}
-        return {}
+    def _apply_action_rate_limit(self, requested_active: int) -> int:
+        """Rate-limit LLM actions based on max actions per rolling minute."""
+        now = time.time()
+        max_per_minute = int(self._runtime_config.get("llm_max_actions_per_minute", 240))
+        while self._action_timestamps and now - self._action_timestamps[0] > 60:
+            self._action_timestamps.popleft()
+        available = max(0, max_per_minute - len(self._action_timestamps))
+        return max(1, min(requested_active, available if available > 0 else 1))
+
+    def _record_action_budget(self, actions_count: int) -> None:
+        now = time.time()
+        for _ in range(max(0, actions_count)):
+            self._action_timestamps.append(now)
+
+    def _refresh_latency_metrics(self, latency_ms: float) -> None:
+        self._metrics["last_tick_latency_ms"] = round(latency_ms, 2)
+        total = max(1, self._metrics["ticks_total"])
+        prev_avg = float(self._metrics.get("avg_tick_latency_ms", 0.0))
+        self._metrics["avg_tick_latency_ms"] = round(((prev_avg * (total - 1)) + latency_ms) / total, 2)
+
+    def _accumulate_action_counts(self, behaviors: list[Dict[str, Any]]) -> None:
+        counts = self._metrics.setdefault("action_counts", {})
+        for behavior in behaviors:
+            action_type = str(behavior.get("action_type", "unknown")).lower()
+            counts[action_type] = int(counts.get(action_type, 0)) + 1
+
+    def get_metrics(self) -> Dict[str, Any]:
+        """Return current simulation metrics snapshot."""
+        snapshot = dict(self._metrics)
+        snapshot["action_counts"] = dict(self._metrics.get("action_counts", {}))
+        snapshot["rate_limit_window_actions"] = len(self._action_timestamps)
+        snapshot["llm_enabled"] = bool(self._runtime_config.get("llm_enabled"))
+        snapshot["llm_provider"] = self._runtime_config.get("llm_provider", "stub")
+        return snapshot
+
+    def _get_behaviors_for_tick(self, tick: int, fallback_agents: list[tuple[Any, Any]]) -> list[Dict[str, Any]]:
+        """Read real OASIS actions from trace table for the current tick."""
+        behaviors: list[Dict[str, Any]] = []
+        try:
+            conn = sqlite3.connect(self.db_path)
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT user_id, created_at, action, info
+                FROM trace
+                WHERE created_at = ?
+                ORDER BY rowid ASC
+                """,
+                (tick,),
+            )
+            rows = cursor.fetchall()
+            conn.close()
+
+            for row in rows:
+                agent_id = int(row["user_id"])
+                action_type = str(row["action"])
+                info_raw = row["info"] or "{}"
+                try:
+                    action_args = json.loads(info_raw)
+                except Exception:
+                    action_args = {"raw": str(info_raw)}
+
+                agent = None
+                if self.agent_graph and hasattr(self.agent_graph, "agent_mappings"):
+                    agent = self.agent_graph.agent_mappings.get(agent_id)
+                agent_name = (
+                    agent.user_info.user_name
+                    if agent is not None and hasattr(agent, "user_info") and hasattr(agent.user_info, "user_name")
+                    else f"Agent_{agent_id}"
+                )
+                behaviors.append(
+                    {
+                        "agent_id": agent_id,
+                        "agent_name": agent_name,
+                        "action_type": action_type,
+                        "action_args": action_args if isinstance(action_args, dict) else {"value": action_args},
+                        "tick": tick,
+                        "success": True,
+                    }
+                )
+        except Exception as e:
+            print(f"[OASIS] Failed to read trace actions for tick {tick}: {e}")
+
+        if behaviors:
+            return behaviors
+
+        # Fallback behavior when trace is missing for this tick.
+        for agent_id, agent in fallback_agents:
+            agent_name = (
+                agent.user_info.user_name
+                if hasattr(agent, "user_info") and hasattr(agent.user_info, "user_name")
+                else f"Agent_{agent_id}"
+            )
+            behaviors.append(
+                {
+                    "agent_id": int(agent_id),
+                    "agent_name": agent_name,
+                    "action_type": "llm_action",
+                    "action_args": {},
+                    "tick": tick,
+                    "success": True,
+                }
+            )
+        return behaviors
 
     async def get_posts(self, limit: int = 50) -> list[Dict[str, Any]]:
         """Get recent posts from the simulation."""
@@ -554,6 +862,22 @@ class OasisSimulation:
 
         return state
 
+    async def refresh_model_backend(self) -> None:
+        """Rebuild model backend and apply to existing agents."""
+        self._model_backend = self._build_model_backend()
+        if not self.agent_graph:
+            return
+
+        applied = 0
+        for _, agent in self.agent_graph.agent_mappings.items():
+            # SocialAgent inherits ChatAgent; model_backend is used internally.
+            if hasattr(agent, "model_backend"):
+                setattr(agent, "model_backend", self._model_backend)
+                applied += 1
+            if hasattr(agent, "model"):
+                setattr(agent, "model", self._model_backend)
+        print(f"[OASIS] Applied model backend to {applied} agents")
+
     async def close(self):
         """Close the simulation."""
         if self.env:
@@ -577,11 +901,11 @@ async def get_oasis_simulation() -> OasisSimulation:
     return _oasis_simulation
 
 
-async def initialize_oasis_simulation(personas_path: str) -> bool:
+async def initialize_oasis_simulation(personas_path: str, runtime_config: Optional[Dict[str, Any]] = None) -> bool:
     """Initialize OASIS simulation with personas."""
     global _oasis_simulation
     _oasis_simulation = OasisSimulation()
-    result = await _oasis_simulation.initialize(personas_path)
+    result = await _oasis_simulation.initialize(personas_path, runtime_config=runtime_config)
     return result
 
 
@@ -591,6 +915,30 @@ async def run_simulation_step() -> Dict[str, Any]:
     if _oasis_simulation is None:
         return {"error": "Simulation not initialized"}
     return await _oasis_simulation.step()
+
+
+async def get_simulation_metrics() -> Dict[str, Any]:
+    """Get runtime simulation metrics."""
+    global _oasis_simulation
+    if _oasis_simulation is None:
+        return {
+            "ticks_total": 0,
+            "ticks_success": 0,
+            "ticks_failed": 0,
+            "llm_timeouts": 0,
+            "llm_errors": 0,
+            "retries_total": 0,
+            "fallback_ticks": 0,
+            "actions_executed_total": 0,
+            "last_tick_latency_ms": 0.0,
+            "avg_tick_latency_ms": 0.0,
+            "last_error": "simulation not initialized",
+            "action_counts": {},
+            "rate_limit_window_actions": 0,
+            "llm_enabled": False,
+            "llm_provider": "stub",
+        }
+    return _oasis_simulation.get_metrics()
 
 
 async def get_simulation_posts(limit: int = 50) -> list[Dict[str, Any]]:
@@ -625,6 +973,30 @@ async def get_simulation_agent_state(agent_id: int) -> Dict[str, Any]:
             }
         }
     return await _oasis_simulation.get_agent_state(agent_id)
+
+
+async def update_simulation_config(config: Dict[str, Any]) -> None:
+    """Update simulation runtime config and hot-apply model backend when needed."""
+    global _oasis_simulation
+    if _oasis_simulation is None:
+        return
+
+    previous = dict(_oasis_simulation._runtime_config)
+    _oasis_simulation.update_runtime_config(config)
+
+    model_related_keys = {
+        "llm_enabled",
+        "llm_provider",
+        "llm_model",
+        "llm_base_url",
+        "llm_api_key",
+        "llm_temperature",
+        "llm_max_tokens",
+        "llm_top_p",
+    }
+    should_refresh_model = any(previous.get(k) != _oasis_simulation._runtime_config.get(k) for k in model_related_keys)
+    if should_refresh_model:
+        await _oasis_simulation.refresh_model_backend()
 
 
 async def close_simulation():

@@ -53,7 +53,7 @@ if not exist "data\oasis_frontend.db" (
 
 REM Start backend in new window
 echo Starting backend server on http://localhost:8000
-start "SocSim Backend" cmd /k "cd /d %CD% && venv\Scripts\activate.bat && python main.py"
+start "SocSim Backend" cmd /k "cd /d %CD% && venv\Scripts\activate.bat && set PYTHONIOENCODING=utf-8 && python main.py"
 
 cd ..
 
@@ -65,7 +65,7 @@ cd frontend
 REM Install frontend dependencies if needed
 if not exist "node_modules\vite" (
     echo Installing frontend dependencies...
-    call npm install
+    call npm.cmd install
 )
 
 REM Copy .env file if it doesn't exist
@@ -76,7 +76,7 @@ if not exist ".env" (
 
 REM Start frontend
 echo Starting frontend server on http://localhost:5173
-call npm run dev
+call npm.cmd run dev
 
 cd ..
 

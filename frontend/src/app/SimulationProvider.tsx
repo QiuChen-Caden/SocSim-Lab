@@ -44,6 +44,8 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, undefined, initialState)
   const hydratedRef = useRef(false)
   const hydrateInFlightRef = useRef(false)
+  const configPatchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingConfigPatchRef = useRef<Partial<SimulationState['config']>>({})
   const seenFeedIdsRef = useRef<Set<string>>(new Set())
   const seenEventIdsRef = useRef<Set<string>>(new Set())
   const seenLogIdsRef = useRef<Set<string>>(new Set())
@@ -83,6 +85,7 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
         dispatch({ type: 'set_tick', tick: backendState.tick })
         dispatch({ type: 'set_running', isRunning: backendState.isRunning })
         dispatch({ type: 'set_speed', speed: backendState.speed })
+        dispatch({ type: 'set_config', patch: backendState.config })
         if (backendState.selectedAgentId !== null) {
           dispatch({ type: 'set_selected_agent', agentId: backendState.selectedAgentId })
         }
@@ -251,6 +254,7 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
         dispatch({ type: 'set_tick', tick: message.state.tick })
         dispatch({ type: 'set_running', isRunning: message.state.isRunning })
         dispatch({ type: 'set_speed', speed: message.state.speed })
+        dispatch({ type: 'set_config', patch: message.state.config })
         if (message.state.selectedAgentId !== null) {
           dispatch({ type: 'set_selected_agent', agentId: message.state.selectedAgentId })
         }
@@ -270,9 +274,27 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  useEffect(() => {
+    return () => {
+      if (configPatchTimerRef.current) {
+        window.clearTimeout(configPatchTimerRef.current)
+      }
+    }
+  }, [])
+
   const actions = useMemo<SimActions>(() => {
     return {
       toggleRun: async () => {
+        if (!state.isRunning && !state.config.designReady) {
+          dispatch({
+            type: 'push_log',
+            level: 'error',
+            tick: state.tick,
+            text: 'run blocked: complete Design and click "Save Changes" first',
+          })
+          return
+        }
+
         const newRunningState = !state.isRunning
         dispatch({ type: 'toggle_run' })
 
@@ -338,7 +360,35 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
         dispatch({ type: 'apply_intervention', tick: state.tick, command, targetAgentId })
         return true
       },
-      setConfig: (patch) => dispatch({ type: 'set_config', patch }),
+      setConfig: (patch) => {
+        const touchesDesignConfig = ['scenarioText', 'seed', 'ticksPerSecond', 'worldSize', 'sampleAgents', 'viewportMode', 'experimentName']
+          .some((key) => key in patch)
+        const normalizedPatch =
+          touchesDesignConfig && !('designReady' in patch)
+            ? { ...patch, designReady: false }
+            : patch
+
+        dispatch({ type: 'set_config', patch: normalizedPatch })
+
+        if (!USE_REAL_API) return
+        pendingConfigPatchRef.current = { ...pendingConfigPatchRef.current, ...normalizedPatch }
+
+        if (configPatchTimerRef.current) {
+          window.clearTimeout(configPatchTimerRef.current)
+        }
+
+        configPatchTimerRef.current = window.setTimeout(async () => {
+          const configPatch = pendingConfigPatchRef.current
+          pendingConfigPatchRef.current = {}
+          configPatchTimerRef.current = null
+
+          try {
+            await api.state.patch({ config: configPatch })
+          } catch (err) {
+            console.error('[SimulationProvider] Failed to persist config:', err)
+          }
+        }, 500)
+      },
       patchAgent: (agentId, patch) => dispatch({ type: 'mutate_agent_state', agentId, patch }),
       regeneratePersonas: () => dispatch({ type: 'regenerate_personas' }),
       createSnapshot: () => dispatch({ type: 'create_snapshot' }),

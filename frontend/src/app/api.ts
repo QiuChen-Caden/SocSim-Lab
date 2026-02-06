@@ -105,6 +105,7 @@ export type SimulationConfig = {
   viewportMode: ViewportMode;
   scenarioText: string;
   experimentName: string;
+  designReady: boolean;
 };
 
 export type SimulationState = {
@@ -301,6 +302,7 @@ export const stateApi = {
     speed?: number;
     tick?: number;
     selectedAgentId?: number | null;
+    config?: Partial<SimulationConfig>;
   }): Promise<void> {
     await request('/api/state', {
       method: 'PATCH',

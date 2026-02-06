@@ -95,6 +95,7 @@ export function initialState(): SimulationState {
       scenarioText:
         '场景：基于真实 Twitter 用户画像的社交模拟。使用 30 个真实提取的 Twitter personas（包含身份、心理测量、行为特征等）。智能体会在空间中移动，并在 Feed 中发布/互动。你可以暂停并注入事件或修改智能体状态。',
       experimentName: 'Twitter Personas Simulation',
+      designReady: false,
     },
     tick: 0,
     isRunning: true,

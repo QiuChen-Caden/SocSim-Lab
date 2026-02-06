@@ -1011,9 +1011,11 @@ async def patch_state(
     speed: Optional[float] = Body(None),
     tick: Optional[int] = Body(None),
     selectedAgentId: Optional[int] = Body(None),
+    config: Optional[dict] = Body(None),
 ):
     """Update simulation state."""
-    state = get_simulation_state()
+    global _sim_state
+    state = _sim_state if _sim_state is not None else get_simulation_state()
 
     if isRunning is not None:
         state.is_running = isRunning
@@ -1023,11 +1025,18 @@ async def patch_state(
         state.tick = max(0, tick)
     if selectedAgentId is not None:
         state.selected_agent_id = selectedAgentId
+    if config is not None:
+        merged_config = state.config.to_dict()
+        merged_config.update(config)
+        state.config = SimulationConfig.from_dict(merged_config)
 
     save_simulation_state(state)
+    _sim_state = state
 
     # Emit state update
     await ws_manager.emit_tick_update(state.tick, state.is_running, state.speed)
+    if config is not None:
+        await ws_manager.emit_simulation_state(state.to_dict())
 
     return {"status": "ok"}
 

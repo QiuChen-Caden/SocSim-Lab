@@ -524,6 +524,7 @@ class SimulationConfig:
     viewport_mode: ViewportMode = ViewportMode.MICRO
     scenario_text: str = ""
     experiment_name: str = "experiment_1"
+    design_ready: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -535,6 +536,7 @@ class SimulationConfig:
             "viewportMode": self.viewport_mode.value,
             "scenarioText": self.scenario_text,
             "experimentName": self.experiment_name,
+            "designReady": self.design_ready,
         }
 
     @classmethod
@@ -548,6 +550,7 @@ class SimulationConfig:
             viewport_mode=ViewportMode(data.get("viewportMode", data.get("viewport_mode", "micro"))),
             scenario_text=data.get("scenarioText", data.get("scenario_text", "")),
             experiment_name=data.get("experimentName", data.get("experiment_name", "experiment_1")),
+            design_ready=data.get("designReady", data.get("design_ready", False)),
         )
 
 

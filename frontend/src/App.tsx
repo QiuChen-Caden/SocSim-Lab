@@ -107,7 +107,12 @@ function Shell() {
               <div className="status">
                 <span className={`pill ${sim.state.isRunning ? 'pill--ok' : 'pill--warn'}`}>{status}</span>
                 <ThemeToggleButton />
-                <button className="btn" onClick={() => sim.actions.toggleRun()}>
+                <button
+                  className="btn"
+                  onClick={() => sim.actions.toggleRun()}
+                  disabled={!sim.state.isRunning && !sim.state.config.designReady}
+                  title={!sim.state.isRunning && !sim.state.config.designReady ? '先在 Workbench Design 中保存配置' : ''}
+                >
                   {sim.state.isRunning ? 'Pause' : 'Run'}
                 </button>
               </div>

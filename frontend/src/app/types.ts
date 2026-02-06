@@ -211,6 +211,7 @@ export type SimulationConfig = {
   viewportMode: ViewportMode
   scenarioText: string
   experimentName: string
+  designReady: boolean
 }
 
 export type InterventionRecord = {

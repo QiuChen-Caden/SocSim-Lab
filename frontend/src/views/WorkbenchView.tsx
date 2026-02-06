@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+﻿import { useMemo, useState } from 'react'
 import { useSim } from '../app/SimulationProvider'
 import { clamp } from '../app/util'
 import ReactECharts from 'echarts-for-react'
@@ -189,11 +189,13 @@ export function WorkbenchView() {
                           <button
                             className="btn"
                             onClick={() => {
+                              sim.actions.setConfig({ designReady: true })
                               sim.actions.logInfo('(user) updated scenario text')
+                              sim.actions.logOk('(system) design marked ready')
                               sim.actions.pushEvent({
                                 tick: sim.state.tick,
                                 type: 'intervention',
-                                title: 'Scenario scenario updated',
+                                title: 'Design saved and unlocked for run',
                               })
                             }}
                           >
@@ -681,7 +683,7 @@ export function WorkbenchView() {
                                 </button>
                               </div>
                               <div className="muted" style={{ fontSize: 11 }}>
-                                当前共有 {Object.keys(sim.state.groups).length} 个群体
+                                选择源群体和目标群体可执行合并（当前为 mock 流程）。
                               </div>
                             </div>
                           </div>
@@ -766,7 +768,9 @@ export function WorkbenchView() {
                                 配置完成 Configuration Complete
                               </div>
                               <div className="muted" style={{ fontSize: 11 }}>
-                                场景和参数已配置完成，可以开始运行模拟
+                                {sim.state.config.designReady
+                                  ? 'Design 已完成，可进入 Run。'
+                                  : 'Design 未完成：请先点击 Save Changes 解锁 Run。'}
                               </div>
                             </div>
                             <button
@@ -775,6 +779,7 @@ export function WorkbenchView() {
                                 sim.actions.logInfo('(user) started run from config')
                                 setStep(2)
                               }}
+                              disabled={!sim.state.config.designReady}
                               style={{ padding: '8px 16px', fontWeight: 650 }}
                             >
                               开始 Run →
@@ -841,7 +846,13 @@ export function WorkbenchView() {
 
                     {/* 控制按钮 */}
                     <div className="row" style={{ gap: 8, marginBottom: 12 }}>
-                      <button className="btn btn--primary" style={{ flex: 1 }} onClick={() => sim.actions.toggleRun()}>
+                      <button
+                        className="btn btn--primary"
+                        style={{ flex: 1 }}
+                        onClick={() => sim.actions.toggleRun()}
+                        disabled={!sim.state.isRunning && !sim.state.config.designReady}
+                        title={!sim.state.isRunning && !sim.state.config.designReady ? '先在 Design 点击 Save Changes' : ''}
+                      >
                         {sim.state.isRunning ? '⏸ 暂停' : '▶ 运行'}
                       </button>
                       <button className="btn" style={{ flex: 1 }} onClick={() => sim.actions.pushEvent({ tick: sim.state.tick, type: 'bookmark', title: 'Bookmark' })}>
@@ -1832,7 +1843,13 @@ function IntervenePanel() {
           </div>
           <div className="panel__bd">
             <div className="row" style={{ gap: 10 }}>
-              <button className="btn" style={{ flex: 1 }} onClick={() => sim.actions.toggleRun()}>
+              <button
+                className="btn"
+                style={{ flex: 1 }}
+                onClick={() => sim.actions.toggleRun()}
+                disabled={!sim.state.isRunning && !sim.state.config.designReady}
+                title={!sim.state.isRunning && !sim.state.config.designReady ? '先在 Design 点击 Save Changes' : ''}
+              >
                 {sim.state.isRunning ? '⏸ Pause 暂停' : '▶ Run 运行'}
               </button>
             </div>
@@ -2137,3 +2154,4 @@ function IntervenePanel() {
     </div>
   )
 }
+

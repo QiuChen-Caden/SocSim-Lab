@@ -4,9 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**SocSim Lab** is a social simulation visualization platform based on Agent-Based Modeling (ABM). It uses real Twitter user personas (30 profiles) combined with psychological models (Big Five personality, Moral Foundations Theory) to simulate and visualize social dynamics, opinion propagation, and group behavior.
+**SocSim Lab** (v3.2) is a social simulation visualization platform based on Agent-Based Modeling (ABM). It uses real Twitter user personas (30 profiles) combined with psychological models (Big Five personality, Moral Foundations Theory) to simulate and visualize social dynamics, opinion propagation, and group behavior.
 
-**Current Status**: Interactive Demo / PoC stage. Frontend UI ~90% complete, using mock data. Backend API available but optional for frontend operation.
+**Current Status**: Production Ready
+**Last Updated**: 2026-02-07
 
 ## Common Development Commands
 
@@ -28,8 +29,6 @@ venv\Scripts\activate     # Windows
 source venv/bin/activate  # Linux/Mac
 pip install -r requirements.txt
 python main.py            # Start server (http://localhost:8765)
-# Or with uvicorn:
-uvicorn main:app --host 0.0.0.0 --port 8765 --reload
 ```
 
 ### Configuration
@@ -39,7 +38,7 @@ uvicorn main:app --host 0.0.0.0 --port 8765 --reload
 - With real API: Fetches agents, state, feed from backend
 
 **Backend**: Copy `backend/.env.example` to `backend/.env` and configure:
-- `OASIS_DB_PATH`: SQLite database path
+- `OASIS_DB_PATH`: SQLite database path (default: `data/oasis_frontend.db`)
 - `CORS_ORIGINS`: Allowed frontend origins
 - `DEBUG`: Debug mode
 

@@ -235,6 +235,14 @@ export type InterventionRecord = {
   targetAgentId?: number
 }
 
+export type SystemLog = {
+  id: string
+  timestamp: number
+  level: 'info' | 'ok' | 'error' | 'warn'
+  message: string
+  category: string
+}
+
 export type SimulationSnapshot = {
   id: string
   experimentName: string
@@ -266,4 +274,5 @@ export type SimulationState = {
   interventions: InterventionRecord[]
   snapshots: SimulationSnapshot[]
   currentSnapshotId: string | null
+  systemLogs: SystemLog[]
 }

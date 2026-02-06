@@ -1,7 +1,21 @@
-﻿import { useMemo, useState } from 'react'
+﻿import { useMemo, useState, useEffect, useRef } from 'react'
 import { useSim } from '../app/SimulationProvider'
 import { clamp } from '../app/util'
 import ReactECharts from 'echarts-for-react'
+
+// 获取当前主题的图表颜色配置
+function getChartColors() {
+  const isDark = document.documentElement.getAttribute('data-theme') !== 'light'
+  return {
+    text: isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.7)',
+    textLight: isDark ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.8)',
+    splitLine: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.08)',
+    axisLine: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+    radarAxis: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+    radarName: isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.7)',
+    radarSplitLine: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+  }
+}
 
 type StepTabKey = 'scenario' | 'pipeline' | 'groups' | 'config'
 
@@ -58,6 +72,14 @@ export function WorkbenchView() {
   const [benchRunning, setBenchRunning] = useState(false)
   const [benchMetrics, setBenchMetrics] = useState<BenchMetrics>(null)
   const [behaviorConsistencyRunning, setBehaviorConsistencyRunning] = useState(false)
+  const [chartColors, setChartColors] = useState(getChartColors())
+
+  // 监听主题变化
+  useEffect(() => {
+    const handleThemeChange = () => setChartColors(getChartColors())
+    window.addEventListener('theme-changed', handleThemeChange)
+    return () => window.removeEventListener('theme-changed', handleThemeChange)
+  }, [])
   const [behaviorMetrics, setBehaviorMetrics] = useState<BehaviorConsistencyMetrics>(null)
   const [personaStats, setPersonaStats] = useState<PersonaStats>(null)
   const [reviewAgentId, setReviewAgentId] = useState<number>(42)
@@ -1061,61 +1083,17 @@ export function WorkbenchView() {
                   </div>
                 </div>
 
-                {/* 右下：Evidence 证据面板 */}
-                {sim.state.selectedAgentId != null && sim.state.agents[sim.state.selectedAgentId] ? (
-                  <div className="panel panel--nested" style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-                    <div className="panel__hd">
-                      <div className="panel__title">Evidence 证据</div>
-                      <span className="pill">{sim.state.agents[sim.state.selectedAgentId].profile.name}</span>
-                    </div>
-                    <div className="panel__bd" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: 0 }}>
-                      <div style={{ padding: 'var(--space-md)', overflow: 'auto', flex: 1 }}>
-                        <div className="row" style={{ gap: 8, marginBottom: 12 }}>
-                          <button className="btn btn--primary" style={{ flex: 1 }} onClick={async () => {
-                            const agentId = sim.state.selectedAgentId!
-                            const ok = await sim.actions.applyIntervention('ping agent', agentId)
-                            if (!ok) return
-                            sim.actions.pushEvent({ tick: sim.state.tick, type: 'intervention', agentId, title: `Ping agent_${agentId}` })
-                            sim.actions.logInfo(`ping agent_${agentId}`, agentId)
-                          }}>Ping</button>
-                          <button className="btn" style={{ flex: 1 }} onClick={() => {
-                            sim.actions.logInfo('refresh evidence', sim.state.selectedAgentId!)
-                          }}>刷新</button>
-                        </div>
-
-                        <div className="muted" style={{ marginBottom: 6, fontSize: 'var(--text-sm)' }}>推理摘要</div>
-                        <div style={{ marginBottom: 12, fontSize: 'var(--text-base)', lineHeight: 1.4 }}>
-                          {sim.state.agents[sim.state.selectedAgentId].state.evidence.reasoningSummary}
-                        </div>
-
-                        <div className="muted" style={{ marginBottom: 6, fontSize: 'var(--text-sm)' }}>记忆命中</div>
-                        {sim.state.agents[sim.state.selectedAgentId].state.evidence.memoryHits.map((m) => (
-                          <div key={m.id} className="logline logline--info" style={{ fontSize: 'var(--text-sm)', marginBottom: 4 }}>
-                            <div className="muted">score {m.score.toFixed(2)}</div>
-                            <div>{m.text}</div>
-                          </div>
-                        ))}
-
-                        <div className="muted" style={{ margin: '10px 0 6px', fontSize: 'var(--text-sm)' }}>工具调用</div>
-                        {sim.state.agents[sim.state.selectedAgentId].state.evidence.toolCalls.map((t) => (
-                          <div key={t.id} className={`logline ${t.status === 'error' ? 'logline--error' : 'logline--ok'}`} style={{ fontSize: 'var(--text-sm)', marginBottom: 4 }}>
-                            <div className="muted">{t.name} · {t.status} · {t.latencyMs}ms</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+                {/* 右下：Tick-Time Chart Tick-时间图 */}
+                <div className="panel panel--nested" style={{ display: 'flex', flexDirection: 'column' }}>
+                  <div className="panel__hd">
+                    <div className="panel__title">Tick-Time Chart Tick-时间图</div>
+                    <span className="pill">运行速度</span>
                   </div>
-                ) : (
-                  <div className="panel panel--nested" style={{ display: 'flex', flexDirection: 'column' }}>
-                    <div className="panel__hd">
-                      <div className="panel__title">Evidence 证据</div>
-                      <span className="pill pill--warn">未选择</span>
-                    </div>
-                    <div className="panel__bd" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <div className="muted" style={{ fontSize: 'var(--text-base)' }}>请先选择一个智能体</div>
-                    </div>
+                  <div className="panel__bd" style={{ flex: 1, minHeight: 0 }}>
+                    <TickTimeChart />
                   </div>
-                )}
+                </div>
+
               </div>
             </>
           )}
@@ -1138,19 +1116,19 @@ export function WorkbenchView() {
                       <div className="panel__bd" style={{ paddingTop: 0 }}>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px 16px' }}>
                           <div>
-                            <div className="muted" style={{ fontSize: 11, marginBottom: 4 }}>total posts 总帖子</div>
+                            <div className="muted" style={{ fontSize: 13, marginBottom: 4 }}>total posts 总帖子</div>
                             <div style={{ fontSize: 18, fontWeight: 600 }}>{sim.state.feed.length}</div>
                           </div>
                           <div>
-                            <div className="muted" style={{ fontSize: 11, marginBottom: 4 }}>current tick 时间步</div>
+                            <div className="muted" style={{ fontSize: 13, marginBottom: 4 }}>current tick 时间步</div>
                             <div style={{ fontSize: 18, fontWeight: 600 }}>{sim.state.tick}</div>
                           </div>
                           <div>
-                            <div className="muted" style={{ fontSize: 11, marginBottom: 4 }}>sort mode 排序</div>
+                            <div className="muted" style={{ fontSize: 13, marginBottom: 4 }}>sort mode 排序</div>
                             <div><span className="pill">time</span></div>
                           </div>
                           <div>
-                            <div className="muted" style={{ fontSize: 11, marginBottom: 4 }}>selected agent 选中</div>
+                            <div className="muted" style={{ fontSize: 13, marginBottom: 4 }}>selected agent 选中</div>
                             <div><span className="pill">agent_{sim.state.selectedAgentId ?? 42}</span></div>
                           </div>
                         </div>
@@ -1167,17 +1145,17 @@ export function WorkbenchView() {
                           <div className="panel__bd" style={{ paddingTop: 0 }}>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px 16px' }}>
                               <div>
-                                <div className="muted" style={{ fontSize: 11, marginBottom: 4 }}>total likes 总点赞</div>
+                                <div className="muted" style={{ fontSize: 13, marginBottom: 4 }}>total likes 总点赞</div>
                                 <div style={{ fontSize: 20, fontWeight: 600, color: 'var(--ok)' }}>{feedStats.totalLikes.toLocaleString()}</div>
                               </div>
                               <div>
-                                <div className="muted" style={{ fontSize: 11, marginBottom: 4 }}>avg likes 平均</div>
+                                <div className="muted" style={{ fontSize: 13, marginBottom: 4 }}>avg likes 平均</div>
                                 <div style={{ fontSize: 20, fontWeight: 600 }}>{feedStats.avgLikes.toFixed(1)}</div>
                               </div>
                             </div>
                             {feedStats.mostEngaged && (
                               <div style={{ marginTop: 16, padding: 12, background: 'rgba(0,0,0,0.15)', borderRadius: 8 }}>
-                                <div className="muted" style={{ fontSize: 11, marginBottom: 8 }}>Most Engaged 最受关注</div>
+                                <div className="muted" style={{ fontSize: 13, marginBottom: 8 }}>Most Engaged 最受关注</div>
                                 <div className="logline logline--info" style={{ fontSize: 12 }}>
                                   <div style={{ fontWeight: 600, marginBottom: 4 }}>{feedStats.mostEngaged.authorName}</div>
                                   <div style={{ marginBottom: 4 }}>{feedStats.mostEngaged.content.slice(0, 60)}...</div>
@@ -1240,22 +1218,22 @@ export function WorkbenchView() {
                                 </div>
                               </div>
                               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
-                                <span className="muted" style={{ fontSize: 11 }}>positive 积极</span>
-                                <span className="muted" style={{ fontSize: 11 }}>neutral 中性</span>
-                                <span className="muted" style={{ fontSize: 11 }}>negative 消极</span>
+                                <span className="muted" style={{ fontSize: 13 }}>positive 积极</span>
+                                <span className="muted" style={{ fontSize: 13 }}>neutral 中性</span>
+                                <span className="muted" style={{ fontSize: 13 }}>negative 消极</span>
                               </div>
                             </div>
 
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
                               <div style={{ padding: 12, background: 'rgba(34, 197, 94, 0.1)', borderRadius: 8, border: '1px solid rgba(34, 197, 94, 0.2)' }}>
-                                <div className="muted" style={{ fontSize: 11, marginBottom: 6 }}>positive 积极</div>
+                                <div className="muted" style={{ fontSize: 13, marginBottom: 6 }}>positive 积极</div>
                                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
                                   <span className="pill pill--ok" style={{ fontSize: 18, fontWeight: 600 }}>{feedStats.positiveCount}</span>
                                   <span className="muted" style={{ fontSize: 13 }}>{((feedStats.positiveCount / sim.state.feed.length) * 100).toFixed(1)}%</span>
                                 </div>
                               </div>
                               <div style={{ padding: 12, background: 'rgba(239, 68, 68, 0.1)', borderRadius: 8, border: '1px solid rgba(239, 68, 68, 0.2)' }}>
-                                <div className="muted" style={{ fontSize: 11, marginBottom: 6 }}>negative 消极</div>
+                                <div className="muted" style={{ fontSize: 13, marginBottom: 6 }}>negative 消极</div>
                                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
                                   <span className="pill pill--danger" style={{ fontSize: 18, fontWeight: 600 }}>{feedStats.negativeCount}</span>
                                   <span className="muted" style={{ fontSize: 13 }}>{((feedStats.negativeCount / sim.state.feed.length) * 100).toFixed(1)}%</span>
@@ -1263,14 +1241,14 @@ export function WorkbenchView() {
                               </div>
                             </div>
                             <div style={{ marginTop: 12, padding: 12, background: 'rgba(0,0,0,0.1)', borderRadius: 8 }}>
-                              <div className="muted" style={{ fontSize: 11, marginBottom: 6 }}>neutral 中性</div>
+                              <div className="muted" style={{ fontSize: 13, marginBottom: 6 }}>neutral 中性</div>
                               <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
                                 <span className="pill" style={{ fontSize: 18, fontWeight: 600 }}>{feedStats.neutralCount}</span>
                                 <span className="muted" style={{ fontSize: 13 }}>{((feedStats.neutralCount / sim.state.feed.length) * 100).toFixed(1)}%</span>
                               </div>
                             </div>
                             <div style={{ marginTop: 12 }}>
-                              <div className="muted" style={{ fontSize: 11, marginBottom: 6 }}>avg emotion 平均情绪</div>
+                              <div className="muted" style={{ fontSize: 13, marginBottom: 6 }}>avg emotion 平均情绪</div>
                               <span className={`pill ${feedStats.avgEmotion > 0.2 ? 'pill--ok' : feedStats.avgEmotion < -0.2 ? 'pill--danger' : ''}`} style={{ fontSize: 16 }}>
                                 {feedStats.avgEmotion > 0 ? '+' : ''}{feedStats.avgEmotion.toFixed(3)}
                               </span>
@@ -1288,22 +1266,22 @@ export function WorkbenchView() {
                       <div className="panel__bd" style={{ paddingTop: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                           <div>
-                            <div className="muted" style={{ fontSize: 11, marginBottom: 6 }}>current index 当前指数</div>
+                            <div className="muted" style={{ fontSize: 13, marginBottom: 6 }}>current index 当前指数</div>
                             <span className={`pill ${(0.5 + 0.5 * Math.sin(sim.state.tick / 18)) > 0.6 ? 'pill--danger' : 'pill--warn'}`} style={{ fontSize: 20, fontWeight: 600, padding: '8px 16px' }}>
                               {(0.5 + 0.5 * Math.sin(sim.state.tick / 18)).toFixed(3)}
                             </span>
                           </div>
-                          <div className="muted" style={{ fontSize: 11, textAlign: 'right', maxWidth: 120 }}>
+                          <div className="muted" style={{ fontSize: 13, textAlign: 'right', maxWidth: 120 }}>
                             {(0.5 + 0.5 * Math.sin(sim.state.tick / 18)) > 0.6 ? '⚠️ 高极化' : (0.5 + 0.5 * Math.sin(sim.state.tick / 18)) > 0.4 ? '⚡ 中等' : '✓ 低极化'}
                           </div>
                         </div>
                         <div style={{ marginBottom: 12 }}>
-                          <div className="muted" style={{ marginBottom: 8, fontSize: 12 }}>polarization trend 极化趋势</div>
+                          <div className="muted" style={{ marginBottom: 8, fontSize: 13 }}>polarization trend 极化趋势</div>
                           <div className="bar" style={{ height: 12, borderRadius: '999px' }}>
                             <div style={{ width: `${((0.5 + 0.5 * Math.sin(sim.state.tick / 18)) * 100)}%`, height: '100%', borderRadius: '999px' }} />
                           </div>
                         </div>
-                        <div className="muted" style={{ fontSize: 11, lineHeight: 1.5, padding: 10, background: 'rgba(0,0,0,0.1)', borderRadius: 6 }}>
+                        <div className="muted" style={{ fontSize: 13, lineHeight: 1.5, padding: 10, background: 'rgba(0,0,0,0.1)', borderRadius: 6 }}>
                           极化指数反映群体观点分化程度，值越高表示对立越严重。基于帖子情绪分布计算 (mock)。
                         </div>
                       </div>
@@ -1373,15 +1351,15 @@ export function WorkbenchView() {
                                   shape: 'polygon',
                                   splitNumber: 4,
                                   axisName: {
-                                    color: 'rgba(255, 255, 255, 0.7)',
+                                    color: chartColors.radarName,
                                     fontSize: 11,
                                   },
                                   splitLine: {
-                                    lineStyle: { color: 'rgba(255, 255, 255, 0.1)' },
+                                    lineStyle: { color: chartColors.radarSplitLine },
                                   },
                                   splitArea: { show: false },
                                   axisLine: {
-                                    lineStyle: { color: 'rgba(255, 255, 255, 0.1)' },
+                                    lineStyle: { color: chartColors.radarAxis },
                                   },
                                 },
                                 series: [
@@ -1443,14 +1421,14 @@ export function WorkbenchView() {
                                     xAxis: {
                                       type: 'category',
                                       data: ['Accuracy', 'Macro-F1', 'Cosine'],
-                                      axisLabel: { color: 'rgba(255,255,255,0.7)', fontSize: 11 },
-                                      axisLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } },
+                                      axisLabel: { color: chartColors.text, fontSize: 11 },
+                                      axisLine: { lineStyle: { color: chartColors.axisLine } },
                                     },
                                     yAxis: {
                                       type: 'value',
                                       max: 1,
-                                      axisLabel: { color: 'rgba(255,255,255,0.7)', fontSize: 11 },
-                                      splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } },
+                                      axisLabel: { color: chartColors.text, fontSize: 11 },
+                                      splitLine: { lineStyle: { color: chartColors.splitLine } },
                                     },
                                     series: [
                                       {
@@ -1464,7 +1442,7 @@ export function WorkbenchView() {
                                         label: {
                                           show: true,
                                           position: 'top',
-                                          color: 'rgba(255,255,255,0.8)',
+                                          color: chartColors.textLight,
                                           fontSize: 11,
                                           formatter: (c: any) => (c.value * 100).toFixed(1) + '%',
                                         },
@@ -1516,14 +1494,14 @@ export function WorkbenchView() {
                                     xAxis: {
                                       type: 'category',
                                       data: ['Diversity', 'Pearson'],
-                                      axisLabel: { color: 'rgba(255,255,255,0.7)', fontSize: 11 },
-                                      axisLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } },
+                                      axisLabel: { color: chartColors.text, fontSize: 11 },
+                                      axisLine: { lineStyle: { color: chartColors.axisLine } },
                                     },
                                     yAxis: {
                                       type: 'value',
                                       max: 1,
-                                      axisLabel: { color: 'rgba(255,255,255,0.7)', fontSize: 11 },
-                                      splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } },
+                                      axisLabel: { color: chartColors.text, fontSize: 11 },
+                                      splitLine: { lineStyle: { color: chartColors.splitLine } },
                                     },
                                     series: [
                                       {
@@ -1536,7 +1514,7 @@ export function WorkbenchView() {
                                         label: {
                                           show: true,
                                           position: 'top',
-                                          color: 'rgba(255,255,255,0.8)',
+                                          color: chartColors.textLight,
                                           fontSize: 11,
                                           formatter: (c: any) => (c.value * 100).toFixed(1) + '%',
                                         },
@@ -1548,7 +1526,7 @@ export function WorkbenchView() {
                                 />
                               </div>
                             </div>
-                            <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                            <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border-light)' }}>
                               <div className="kv" style={{ fontSize: 13, gridTemplateColumns: '160px 1fr', gap: '8px 12px' }}>
                                 <div className="kv__k">DTW 动态时间规整</div>
                                 <div>
@@ -2265,4 +2243,87 @@ function IntervenePanel() {
     </div>
   )
 }
+
+// Tick-Time Chart Component
+function TickTimeChart() {
+  const sim = useSim()
+  const tickTimeDataRef = useRef<Array<{ tick: number; time: number; displayTime: string }>>([])
+  const lastTickRef = useRef<number>(-1)
+
+  // 记录 tick 时间
+  useEffect(() => {
+    const currentTick = sim.state.tick
+    if (currentTick !== lastTickRef.current) {
+      const now = Date.now()
+      tickTimeDataRef.current.push({
+        tick: currentTick,
+        time: now,
+        displayTime: new Date(now).toLocaleTimeString('zh-CN', { hour12: false })
+      })
+      // 限制数据点数量，最多保留 200 个
+      if (tickTimeDataRef.current.length > 200) {
+        tickTimeDataRef.current = tickTimeDataRef.current.slice(-200)
+      }
+      lastTickRef.current = currentTick
+    }
+  }, [sim.state.tick])
+
+  const chartOption = useMemo(() => {
+    const data = tickTimeDataRef.current
+    if (data.length === 0) {
+      return {
+        animation: false,
+        grid: { top: 30, right: 20, bottom: 30, left: 50 },
+        xAxis: { type: 'value', name: 'tick' },
+        yAxis: { type: 'value', name: '时间 (秒)' },
+        series: []
+      }
+    }
+
+    // 计算相对时间（从第一个 tick 开始的秒数）
+    const baseTime = data[0].time
+    const timeData = data.map(d => ((d.time - baseTime) / 1000).toFixed(1))
+
+    return {
+      animation: false,
+      grid: { top: 20, right: 15, bottom: 30, left: 45 },
+      tooltip: {
+        trigger: 'axis',
+        axisPointer: { type: 'cross' },
+        formatter: (params: any) => {
+          const p = params[0]
+          const d = data[p.dataIndex]
+          return `tick: ${d.tick}<br/>时间: ${d.displayTime}<br/>已运行: ${timeData[p.dataIndex]}s`
+        }
+      },
+      xAxis: {
+        type: 'value',
+        name: 'tick',
+        nameTextStyle: { color: '#666', fontSize: 11 },
+        axisLine: { lineStyle: { color: '#333' } },
+        axisLabel: { color: '#999', fontSize: 10 }
+      },
+      yAxis: {
+        type: 'value',
+        name: '运行时间 (秒)',
+        nameTextStyle: { color: '#666', fontSize: 11 },
+        axisLine: { lineStyle: { color: '#333' } },
+        axisLabel: { color: '#999', fontSize: 10 },
+        splitLine: { lineStyle: { color: '#222' } }
+      },
+      series: [{
+        type: 'line',
+        data: timeData,
+        smooth: false,
+        showSymbol: true,
+        symbolSize: 4,
+        lineStyle: { color: '#7fb2ff', width: 1.5 },
+        itemStyle: { color: '#7fb2ff' }
+      }]
+    }
+  }, [sim.state.tick, tickTimeDataRef.current])
+
+  return <ReactECharts option={chartOption} style={{ height: '100%', width: '100%' }} />
+}
+
 

@@ -2,6 +2,10 @@
 
 Backend API service for integrating OASIS simulation platform with the frontend demo application.
 
+## Version
+
+**v3.2** | Last updated: 2026-02-07
+
 ## Features
 
 - **REST API**: Complete REST API for agents, feed, state, events, logs, snapshots, bookmarks, and interventions
@@ -11,6 +15,7 @@ Backend API service for integrating OASIS simulation platform with the frontend 
 - **Emotion Analysis**: Rule-based and lexicon-based emotion analysis for posts
 - **Snapshot System**: Save and restore simulation states
 - **Bookmark System**: Mark and jump to key moments in simulation
+- **SQLite Database**: Embedded database, no separate deployment needed
 
 ## Installation
 
@@ -33,7 +38,7 @@ pip install -r requirements.txt
 Create a `.env` file in the backend directory:
 
 ```env
-# Database
+# Database (embedded SQLite)
 OASIS_DB_PATH=backend/data/oasis_frontend.db
 
 # CORS (allow frontend to connect)
@@ -41,6 +46,10 @@ CORS_ORIGINS=["http://localhost:5173","http://localhost:3000"]
 
 # Debug mode
 DEBUG=true
+
+# API Settings
+APP_NAME=OASIS Frontend Backend
+VERSION=3.2.0
 ```
 
 ## Running
@@ -50,8 +59,10 @@ DEBUG=true
 python main.py
 
 # Or with uvicorn directly
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+uvicorn main:app --host 0.0.0.0 --port 8765 --reload
 ```
+
+**Server URL**: `http://localhost:8765`
 
 ### Windows PowerShell (verified command)
 
@@ -61,13 +72,11 @@ $env:PYTHONIOENCODING = "utf-8"
 .\venv\Scripts\python.exe .\main.py
 ```
 
-The API will be available at `http://localhost:8000`
-
 ## API Documentation
 
 Once the server is running, visit:
-- Swagger UI: `http://localhost:8000/docs`
-- ReDoc: `http://localhost:8000/redoc`
+- Swagger UI: `http://localhost:8765/docs`
+- ReDoc: `http://localhost:8765/redoc`
 
 ## API Endpoints
 
@@ -125,7 +134,7 @@ Once the server is running, visit:
 ## WebSocket Usage
 
 ```javascript
-const ws = new WebSocket('ws://localhost:8000/ws');
+const ws = new WebSocket('ws://localhost:8765/ws');
 
 // Subscribe to specific events
 ws.send(JSON.stringify({
@@ -167,6 +176,15 @@ The backend extends the OASIS database schema with:
 - `simulation_log` - Simulation logs
 - `simulation_state` - Global simulation state
 - `intervention_record` - Intervention records
+
+## Data Persistence
+
+The backend uses **SQLite embedded database**:
+
+- **No separate database deployment** needed
+- **Database file**: `data/oasis_frontend.db` (by default)
+- **Cross-machine deployment**: Just copy the database file
+- **Configurable path**: Set `OASIS_DB_PATH` environment variable
 
 ## Directory Structure
 

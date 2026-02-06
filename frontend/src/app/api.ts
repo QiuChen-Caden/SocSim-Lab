@@ -96,6 +96,14 @@ export type LogLine = {
   text: string;
 };
 
+export type SystemLog = {
+  id: string;
+  timestamp: number;
+  level: 'info' | 'ok' | 'error' | 'warn';
+  message: string;
+  category: string;
+};
+
 export type SimulationConfig = {
   seed: number;
   agentCount: number;
@@ -468,6 +476,29 @@ export const logsApi = {
   },
 };
 
+// ============= System Logs API =============
+
+export const systemLogsApi = {
+  /**
+   * Get system logs (backend debug logs)
+   */
+  async getAll(options?: {
+    limit?: number;
+    level?: 'info' | 'ok' | 'error' | 'warn';
+  }): Promise<SystemLog[]> {
+    const params = new URLSearchParams();
+    if (options?.limit) {
+      params.append('limit', options.limit.toString());
+    }
+    if (options?.level) {
+      params.append('level', options.level);
+    }
+
+    const query = params.toString();
+    return request<SystemLog[]>(`/api/system-logs${query ? `?${query}` : ''}`);
+  },
+};
+
 // ============= Snapshots API =============
 
 export const snapshotsApi = {
@@ -589,6 +620,20 @@ export const visualizationApi = {
   }> {
     return request(`/api/visualization/layout?algorithm=${algorithm}`);
   },
+
+  /**
+   * Get real network edges from backend runtime DB.
+   */
+  async getNetwork(options?: { limit?: number }): Promise<{
+    edges: Array<{ source: number; target: number; kind: 'follow' | 'group' | 'message'; strength: number }>;
+    source: string;
+    error?: string;
+  }> {
+    const params = new URLSearchParams();
+    if (options?.limit) params.set('limit', String(options.limit));
+    const query = params.toString();
+    return request(`/api/visualization/network${query ? `?${query}` : ''}`);
+  },
 };
 
 // ============= Combined API export =============
@@ -600,6 +645,7 @@ export const api = {
   simulation: simulationApi,
   events: eventsApi,
   logs: logsApi,
+  systemLogs: systemLogsApi,
   snapshots: snapshotsApi,
   bookmarks: bookmarksApi,
   interventions: interventionsApi,
@@ -615,6 +661,7 @@ export type WebSocketMessage =
   | { type: 'post_created'; post: FeedPost; timestamp: string }
   | { type: 'event_created'; event: TimelineEvent; timestamp: string }
   | { type: 'log_added'; log: LogLine; timestamp: string }
+  | { type: 'system_log'; log: SystemLog; timestamp: string }
   | { type: 'simulation_state'; state: SimulationState; timestamp: string }
   | { type: 'error'; error: string; details?: Record<string, unknown>; timestamp: string }
   | { type: 'pong'; timestamp: string };

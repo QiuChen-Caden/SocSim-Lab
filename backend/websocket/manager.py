@@ -286,6 +286,14 @@ class WebSocketManager:
             "timestamp": datetime.now().isoformat(),
         }, event_type="error")
 
+    async def broadcast_system_log(self, log: dict) -> None:
+        """Emit a system log event."""
+        await self.broadcast({
+            "type": "system_log",
+            "log": log,
+            "timestamp": datetime.now().isoformat(),
+        }, event_type="system_log")
+
     # Event callbacks
     def on(self, event_type: str, callback: Callable) -> None:
         """Register a callback for an event type."""

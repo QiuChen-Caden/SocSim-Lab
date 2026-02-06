@@ -10,9 +10,11 @@ import asyncio
 import re
 import math
 import sys
+import sqlite3
 from typing import Optional, List, Any
 from contextlib import asynccontextmanager
 from datetime import datetime
+from pathlib import Path
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Query, Body
 from fastapi.middleware.cors import CORSMiddleware
@@ -89,6 +91,7 @@ class Settings(BaseSettings):
 
 settings = Settings()
 DEFAULT_DEEPSEEK_KEY = "sk-5c79877413f346ceb7d4fdbf6daed4e6"
+OASIS_RUNTIME_DB_PATH = Path(__file__).resolve().parent.parent / "data" / "oasis_simulation.db"
 
 # Import OASIS integration
 from oasis_integration import (
@@ -105,6 +108,47 @@ from oasis_integration import (
 
 # Path to personas file (relative to backend directory)
 PERSONAS_PATH = "twitter_personas_20260123_222506.json"
+
+# ============= System Log Management =============
+_system_logs: List[dict] = []
+_max_system_logs = 500
+
+def _add_system_log(level: str, message: str, category: str = "system") -> None:
+    """Add a system log and broadcast via WebSocket."""
+    global _system_logs
+    import time
+    log_entry = {
+        "id": str(uuid.uuid4()),
+        "timestamp": time.time(),
+        "level": level,
+        "message": message,
+        "category": category,
+    }
+    _system_logs.append(log_entry)
+    if len(_system_logs) > _max_system_logs:
+        _system_logs = _system_logs[-_max_system_logs:]
+
+    # Broadcast to WebSocket clients
+    try:
+        asyncio.create_task(ws_manager.broadcast_system_log(log_entry))
+    except:
+        pass  # WebSocket not ready yet
+
+    # Also print to console for debugging
+    level_icon = {"info": "", "ok": "✓", "error": "✗", "warn": "⚠"}.get(level, "")
+    print(f"[{level.upper()}] {level_icon} {message}")
+
+def sys_info(msg: str) -> None:
+    _add_system_log("info", msg)
+
+def sys_ok(msg: str) -> None:
+    _add_system_log("ok", msg)
+
+def sys_error(msg: str) -> None:
+    _add_system_log("error", msg)
+
+def sys_warn(msg: str) -> None:
+    _add_system_log("warn", msg)
 
 
 # ============= Lifecycle Management =============
@@ -1372,6 +1416,18 @@ async def create_log(
     )
 
 
+@app.get("/api/system-logs")
+async def get_system_logs(
+    limit: int = Query(100, description="Maximum number of logs to return"),
+    level: Optional[str] = Query(None, description="Filter by log level"),
+):
+    """Get system logs (backend debug logs)."""
+    logs = _system_logs.copy()
+    if level:
+        logs = [log for log in logs if log["level"] == level]
+    return logs[-limit:]
+
+
 # ============= Snapshots Endpoints =============
 
 @app.get("/api/snapshots")
@@ -1599,6 +1655,62 @@ async def get_agent_layout(
     }
 
 
+@app.get("/api/visualization/network")
+async def get_agent_network(
+    limit: int = Query(4000, description="Maximum number of edges to return"),
+):
+    """
+    Get real network edges from OASIS runtime database.
+
+    Returns follow relationships when available; falls back to empty list.
+    """
+    limit = max(100, min(limit, 20000))
+    edges: list[dict[str, Any]] = []
+    db_path = OASIS_RUNTIME_DB_PATH
+    if not db_path.exists():
+        return {"edges": edges, "source": "missing_runtime_db"}
+
+    try:
+        conn = sqlite3.connect(str(db_path))
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT follower_id, followee_id
+            FROM follow
+            WHERE follower_id IS NOT NULL AND followee_id IS NOT NULL
+            ORDER BY follow_id DESC
+            LIMIT ?
+            """,
+            (limit,),
+        )
+        rows = cur.fetchall()
+        conn.close()
+
+        seen: set[tuple[int, int]] = set()
+        for follower_id, followee_id in rows:
+            try:
+                source = int(follower_id)
+                target = int(followee_id)
+            except Exception:
+                continue
+            if source == target:
+                continue
+            key = (source, target) if source < target else (target, source)
+            if key in seen:
+                continue
+            seen.add(key)
+            edges.append({
+                "source": key[0],
+                "target": key[1],
+                "kind": "follow",
+                "strength": 0.95,
+            })
+    except Exception as e:
+        return {"edges": [], "source": "runtime_db_error", "error": str(e)}
+
+    return {"edges": edges, "source": "oasis_follow_table"}
+
+
 # ============= WebSocket Endpoint =============
 
 @app.websocket("/ws")
@@ -1684,4 +1796,3 @@ if __name__ == "__main__":
         reload=False,
         log_level="info",
     )
-

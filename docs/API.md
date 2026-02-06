@@ -1,7 +1,7 @@
 # SocSim Lab - API 接口文档
 
-> **版本**: v3.1
-> **更新日期**: 2026-02-06
+> **版本**: v3.2
+> **更新日期**: 2026-02-07
 > **Base URL**: `http://localhost:8765`
 > **WebSocket**: `ws://localhost:8765/ws`
 
@@ -49,9 +49,9 @@ SocSim Lab API 提供完整的社交模拟后端服务，基于 FastAPI 框架�
 
 | 文档类型 | 地址 |
 |---------|------|
-| Swagger UI | http://localhost:8000/docs |
-| ReDoc | http://localhost:8000/redoc |
-| OpenAPI JSON | http://localhost:8000/openapi.json |
+| Swagger UI | http://localhost:8765/docs |
+| ReDoc | http://localhost:8765/redoc |
+| OpenAPI JSON | http://localhost:8765/openapi.json |
 
 ---
 
@@ -1682,6 +1682,6 @@ stopped → running → paused → running
 
 ---
 
-**文档版本**: v3.0
-**最后更新**: 2026-02-06
+**文档版本**: v3.2
+**最后更新**: 2026-02-07
 **维护者**: SocSim Lab Team

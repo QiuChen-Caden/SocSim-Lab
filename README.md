@@ -1,5 +1,6 @@
 # SocSim Lab - 社交模拟可视化平台
 
+> **版本**: v3.2 | **更新日期**: 2026-02-07
 > **大规模社交模拟可视化平台**：百万级智能体渲染 · 实时干预控制 · 时间轴回放 · FastAPI 后端集成
 
 ## 项目简介
@@ -34,13 +35,13 @@
 
 | 技术 | 版本 | 用途 |
 |------|------|------|
-| React | ^19.2.0 | UI 框架 |
-| TypeScript | ~5.9.3 | 类型系统 |
-| Vite | ^7.2.4 | 构建工具 |
-| PixiJS | ^8.15.0 | 2D 渲染引擎 |
-| pixi-viewport | ^6.0.3 | 视口管理（缩放/拖拽） |
-| ESLint | ^9.39.1 | 代码规范 |
-| FastAPI | ^0.109.0 | 后端 API 服务 |
+| React | 19.3.0 | UI 框架 |
+| TypeScript | 5.8.3 | 类型系统 |
+| Vite | 7.4.0 | 构建工具 |
+| PixiJS | 8.15.0 | 2D 渲染引擎 |
+| pixi-viewport | 6.0.3 | 视口管理（缩放/拖拽） |
+| ECharts | 6.x | 图表可视化 |
+| FastAPI | 0.115.0 | 后端 API 服务 |
 | SQLite3 | - | 数据库 |
 | WebSocket | - | 实时通信 |
 
@@ -148,11 +149,11 @@ python import_personas.py
 python main.py
 ```
 
-后端服务：
-- API 地址：http://localhost:8000
-- Swagger 文档：http://localhost:8000/docs
-- ReDoc 文档：http://localhost:8000/redoc
-- WebSocket：ws://localhost:8000/ws
+**后端服务地址**：
+- API 地址：http://localhost:8765
+- Swagger 文档：http://localhost:8765/docs
+- ReDoc 文档：http://localhost:8765/redoc
+- WebSocket：ws://localhost:8765/ws
 
 #### 前端服务
 
@@ -203,12 +204,17 @@ cd frontend
 npm run lint
 ```
 
-### 预览生产构建
+### 数据持久化说明
 
-```bash
-cd frontend
-npm run preview
-```
+**重要**：项目使用 **SQLite 嵌入式数据库**，无需单独部署数据库服务：
+
+- Mock 模式：前端模拟数据，无需后端，无持久化
+- Real 模式：后端使用 SQLite，数据存储在 `data/oasis_frontend.db`
+- 跨电脑部署：只需复制数据库文件即可
+
+**数据库位置**：
+- 默认：`data/oasis_frontend.db`（项目根目录）
+- 可通过环境变量 `OASIS_DB_PATH` 自定义
 
 ## 功能详解
 

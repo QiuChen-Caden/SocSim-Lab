@@ -30,11 +30,14 @@ export type Action =
   | { type: 'load_snapshot'; snapshotId: string }
   | { type: 'delete_snapshot'; snapshotId: string }
   | { type: 'clear_snapshots' }
+  | { type: 'push_system_log'; log: SimulationState['systemLogs'][number] }
+  | { type: 'set_system_logs'; logs: SimulationState['systemLogs'] }
 
 const MAX_LOGS = 4000
 const MAX_EVENTS = 2500
 const MAX_FEED = 2000
 const MAX_INTERVENTIONS = 120
+const MAX_SYSTEM_LOGS = 500
 
 function makeEvidence(agentId: number, tick: number) {
   const mem = Array.from({ length: 4 }).map((_, i) => {
@@ -194,6 +197,7 @@ export function initialState(): SimulationState {
     interventions: [],
     snapshots: [],
     currentSnapshotId: null,
+    systemLogs: [],
   }
 }
 
@@ -438,6 +442,13 @@ export function reducer(state: SimulationState, action: Action): SimulationState
     }
     case 'clear_snapshots': {
       return { ...state, snapshots: [], currentSnapshotId: null }
+    }
+    case 'push_system_log': {
+      const next = [...state.systemLogs, action.log]
+      return { ...state, systemLogs: next.slice(Math.max(0, next.length - MAX_SYSTEM_LOGS)) }
+    }
+    case 'set_system_logs': {
+      return { ...state, systemLogs: action.logs }
     }
     default:
       return state

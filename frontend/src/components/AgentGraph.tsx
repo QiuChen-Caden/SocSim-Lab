@@ -1,17 +1,18 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import ReactECharts from 'echarts-for-react'
+import type { EChartsOption } from 'echarts'
 import type { AgentGraph } from '../app/agentGraph'
-import { clamp, hash01 } from '../app/util'
+import { clamp } from '../app/util'
 
 type AgentGraphProps = {
   graph: AgentGraph
   focusId?: number | null
+  nodeMetaById?: Record<number, { influenceTier?: string; mood?: number; stance?: number }>
   onSelectAgent?: (agentId: number) => void
   height?: number
   canvasScale?: number
   onCanvasScaleChange?: (scale: number) => void
 }
-
-type Size = { w: number; h: number }
 
 const GROUP_PALETTE = ['#6aa7ff', '#41d39f', '#ffc24b', '#ff5b7a', '#b48cff', '#7fb2ff', '#58d1ff']
 
@@ -21,387 +22,265 @@ function colorForGroup(group: string) {
   return GROUP_PALETTE[acc % GROUP_PALETTE.length]
 }
 
-export function AgentGraphCanvas({ graph, focusId, onSelectAgent, height, canvasScale = 1.0, onCanvasScaleChange }: AgentGraphProps) {
-  const hostRef = useRef<HTMLDivElement | null>(null)
-  const canvasRef = useRef<HTMLCanvasElement | null>(null)
-  const [size, setSize] = useState<Size>({ w: 0, h: 0 })
-  const hoverRef = useRef<number | null>(null)
-  const [tip, setTip] = useState<{ x: number; y: number; text: string } | null>(null)
+function edgeStyleForKind(kind: string) {
+  if (kind === 'follow') return { width: 1.7, opacity: 0.56, color: '#8bb4ff' }
+  if (kind === 'group') return { width: 1.2, opacity: 0.4, color: '#6ed4aa' }
+  return { width: 1.0, opacity: 0.28, color: '#b8c3dd' }
+}
+
+function influenceToWeight(tier?: string) {
+  if (tier === 'elite') return 1.0
+  if (tier === 'opinion_leader') return 0.72
+  if (tier === 'ordinary_user') return 0.45
+  return 0.55
+}
+
+function moodBorderColor(mood?: number) {
+  if (mood == null) return 'rgba(255,255,255,0.45)'
+  if (mood > 0.2) return '#4ade80'
+  if (mood < -0.2) return '#f87171'
+  return '#facc15'
+}
+
+export function AgentGraphCanvas({
+  graph,
+  focusId,
+  nodeMetaById,
+  onSelectAgent,
+  height,
+  canvasScale = 1.0,
+  onCanvasScaleChange,
+}: AgentGraphProps) {
   const [localScale, setLocalScale] = useState(canvasScale)
+  const [showLabels, setShowLabels] = useState(false)
+  const [sizeMetric, setSizeMetric] = useState<'degree' | 'influence'>('degree')
 
-  const indexById = useMemo(() => {
-    const m = new Map<number, number>()
-    for (let i = 0; i < graph.nodes.length; i++) m.set(graph.nodes[i].id, i)
-    return m
-  }, [graph.nodes])
-
-  const simRef = useRef<{
-    pos: Float32Array
-    vel: Float32Array
-    draggingIdx: number | null
-    iterationsLeft: number
-  } | null>(null)
-
-  // resize
   useEffect(() => {
-    const host = hostRef.current
-    if (!host) return
+    setLocalScale(canvasScale)
+  }, [canvasScale])
 
-    const apply = () => {
-      const w = Math.max(1, Math.floor(host.clientWidth || 0))
-      const h = Math.max(1, Math.floor(host.clientHeight || 0))
-      setSize({ w, h })
+  const option = useMemo<EChartsOption>(() => {
+    const degreeById = new Map<number, number>()
+    for (const node of graph.nodes) degreeById.set(node.id, 0)
+    for (const edge of graph.edges) {
+      degreeById.set(edge.source, (degreeById.get(edge.source) ?? 0) + 1)
+      degreeById.set(edge.target, (degreeById.get(edge.target) ?? 0) + 1)
     }
 
-    apply()
-    if (typeof ResizeObserver === 'undefined') return
-    const ro = new ResizeObserver(() => apply())
-    ro.observe(host)
-    return () => ro.disconnect()
-  }, [])
+    const degreeValues = Array.from(degreeById.values()).sort((a, b) => b - a)
+    const topDegreeThreshold = degreeValues[Math.max(0, Math.floor(degreeValues.length * 0.12) - 1)] ?? 0
 
-  // init sim state when graph changes
-  useEffect(() => {
-    const n = graph.nodes.length
-    const pos = new Float32Array(n * 2)
-    const vel = new Float32Array(n * 2)
+    const categories = Array.from(new Set(graph.nodes.map((n) => n.group))).map((name) => ({
+      name,
+      itemStyle: { color: colorForGroup(name) },
+    }))
+    const categoryIndex = new Map(categories.map((c, i) => [c.name, i]))
 
-    const groups = Array.from(new Set(graph.nodes.map((x) => x.group))).sort()
-    const groupIndex = new Map<string, number>()
-    for (let i = 0; i < groups.length; i++) groupIndex.set(groups[i], i)
+    const nodes = graph.nodes.map((node) => {
+      const isFocus = focusId != null && node.id === focusId
+      const meta = nodeMetaById?.[node.id]
+      const degree = degreeById.get(node.id) ?? 0
+      const influenceWeight = influenceToWeight(meta?.influenceTier)
+      const sizeFromDegree = clamp(11 + degree * 1.9, 11, 34)
+      const sizeFromInfluence = clamp(12 + influenceWeight * 16, 12, 30)
+      const symbolSize = isFocus ? 34 : sizeMetric === 'influence' ? sizeFromInfluence : sizeFromDegree
+      const shouldShowLabel = isFocus || showLabels || degree >= Math.max(3, topDegreeThreshold)
 
-    for (let i = 0; i < n; i++) {
-      const node = graph.nodes[i]
-      const gi = groupIndex.get(node.group) ?? 0
-      const t = (gi + 0.5) / Math.max(1, groups.length)
-      const angle = t * Math.PI * 2 + (hash01(node.id * 13.7) - 0.5) * 0.55
-      const r = 0.18 + (hash01(node.id * 3.1) - 0.5) * 0.10
-      pos[i * 2] = Math.cos(angle) * r
-      pos[i * 2 + 1] = Math.sin(angle) * r
-      vel[i * 2] = 0
-      vel[i * 2 + 1] = 0
-    }
+      return {
+        id: String(node.id),
+        name: node.label,
+        value: node.id,
+        category: categoryIndex.get(node.group) ?? 0,
+        degree,
+        influenceTier: meta?.influenceTier ?? 'unknown',
+        mood: meta?.mood,
+        stance: meta?.stance,
+        symbolSize,
+        itemStyle: {
+          color: colorForGroup(node.group),
+          borderColor: isFocus ? '#ffd95e' : moodBorderColor(meta?.mood),
+          borderWidth: isFocus ? 3 : 1,
+        },
+        label: {
+          show: shouldShowLabel,
+          color: '#ffffff',
+          fontSize: 11,
+          formatter: `{name|${node.label}}`,
+          rich: {
+            name: {
+              backgroundColor: 'rgba(0,0,0,0.55)',
+              padding: [3, 6],
+              borderRadius: 5,
+            },
+          },
+        },
+      }
+    })
 
-    simRef.current = { pos, vel, draggingIdx: null, iterationsLeft: 240 }
-  }, [graph.nodes, graph.edges])
+    const links = graph.edges.map((edge) => {
+      const style = edgeStyleForKind(edge.kind)
+      return {
+        source: String(edge.source),
+        target: String(edge.target),
+        value: edge.strength,
+        lineStyle: {
+          color: style.color,
+          width: style.width + edge.strength,
+          opacity: style.opacity,
+          curveness: edge.kind === 'message' ? 0.08 : 0,
+        },
+      }
+    })
 
-  // simulation + draw loop
-  useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const n = graph.nodes.length
-    if (n === 0) return
-
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-
-    if (size.w <= 0 || size.h <= 0) return
-
-    const sim = simRef.current
-    if (!sim) return
-
-    let disposed = false
-    let rafId = 0
-
-    const dpr = Math.max(1, Math.floor(window.devicePixelRatio || 1))
-    canvas.width = Math.max(1, size.w * dpr)
-    canvas.height = Math.max(1, size.h * dpr)
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-
-    const pad = 18
-    const w = size.w
-    const h = size.h
-    const cx = w / 2
-    const cy = h / 2
-    const scale = Math.min(w, h) * 0.44 * localScale
-
-    const edgesIdx = graph.edges
-      .map((e) => {
-        const s = indexById.get(e.source)
-        const t = indexById.get(e.target)
-        if (s == null || t == null) return null
-        return { s, t, strength: e.strength, kind: e.kind }
-      })
-      .filter(Boolean) as Array<{ s: number; t: number; strength: number; kind: string }>
-
-    const step = () => {
-      if (disposed) return
-
-      // physics in normalized space (-1..1), then mapped to canvas
-      const pos = sim.pos
-      const vel = sim.vel
-
-      const repulse = n <= 220 ? 0.0035 : 0.0025
-      const springK = 0.008
-      const springLen = 0.26
-      const centerK = 0.006
-      const damp = 0.82
-
-      if (sim.iterationsLeft > 0) {
-        // repulsion
-        for (let i = 0; i < n; i++) {
-          for (let j = i + 1; j < n; j++) {
-            const ix = i * 2
-            const jx = j * 2
-            const dx = pos[ix] - pos[jx]
-            const dy = pos[ix + 1] - pos[jx + 1]
-            const d2 = dx * dx + dy * dy + 0.0006
-            const f = repulse / d2
-            vel[ix] += dx * f
-            vel[ix + 1] += dy * f
-            vel[jx] -= dx * f
-            vel[jx + 1] -= dy * f
+    return {
+      backgroundColor: 'transparent',
+      tooltip: {
+        trigger: 'item',
+        formatter: (params: any) => {
+          if (params.dataType === 'edge') {
+            return `link: ${params.data.source} -> ${params.data.target}`
           }
-        }
-
-        // springs along edges
-        for (const e of edgesIdx) {
-          const ia = e.s * 2
-          const ib = e.t * 2
-          const dx = pos[ib] - pos[ia]
-          const dy = pos[ib + 1] - pos[ia + 1]
-          const dist = Math.sqrt(dx * dx + dy * dy) + 0.0001
-          const k = springK * (0.6 + e.strength)
-          const f = (dist - springLen) * k
-          const nx = dx / dist
-          const ny = dy / dist
-          vel[ia] += nx * f
-          vel[ia + 1] += ny * f
-          vel[ib] -= nx * f
-          vel[ib + 1] -= ny * f
-        }
-
-        // center force + integrate
-        for (let i = 0; i < n; i++) {
-          const ix = i * 2
-          vel[ix] += -pos[ix] * centerK
-          vel[ix + 1] += -pos[ix + 1] * centerK
-
-          // don't fight the user while dragging
-          if (sim.draggingIdx === i) {
-            vel[ix] = 0
-            vel[ix + 1] = 0
-            continue
-          }
-
-          vel[ix] *= damp
-          vel[ix + 1] *= damp
-          pos[ix] += vel[ix]
-          pos[ix + 1] += vel[ix + 1]
-
-          pos[ix] = clamp(pos[ix], -0.95, 0.95)
-          pos[ix + 1] = clamp(pos[ix + 1], -0.95, 0.95)
-        }
-
-        sim.iterationsLeft -= 1
-      }
-
-      // draw
-      ctx.clearRect(0, 0, w, h)
-
-      // background
-      ctx.fillStyle = 'rgba(0,0,0,0.12)'
-      ctx.fillRect(0, 0, w, h)
-
-      // edges
-      ctx.lineCap = 'round'
-      for (const e of edgesIdx) {
-        const ia = e.s * 2
-        const ib = e.t * 2
-        const ax = cx + pos[ia] * scale
-        const ay = cy + pos[ia + 1] * scale
-        const bx = cx + pos[ib] * scale
-        const by = cy + pos[ib + 1] * scale
-
-        const alpha = e.kind === 'follow' ? 0.35 : e.kind === 'group' ? 0.25 : 0.18
-        ctx.strokeStyle = `rgba(231,236,255,${alpha})`
-        ctx.lineWidth = e.kind === 'follow' ? 1.4 : 0.9
-        ctx.beginPath()
-
-        // Use quadratic curve for Obsidian-like curved edges
-        const midX = (ax + bx) / 2
-        const midY = (ay + by) / 2
-        // Add slight curve offset based on direction
-        const dx = bx - ax
-        const dy = by - ay
-        const offsetX = -dy * 0.15
-        const offsetY = dx * 0.15
-        const ctrlX = midX + offsetX
-        const ctrlY = midY + offsetY
-
-        ctx.moveTo(ax, ay)
-        ctx.quadraticCurveTo(ctrlX, ctrlY, bx, by)
-        ctx.stroke()
-      }
-
-      // nodes
-      for (let i = 0; i < n; i++) {
-        const node = graph.nodes[i]
-        const ix = i * 2
-        const x = cx + pos[ix] * scale
-        const y = cy + pos[ix + 1] * scale
-        const isFocus = focusId != null && node.id === focusId
-        const hoverNow = hoverRef.current
-        const isHover = hoverNow != null && node.id === hoverNow
-
-        const r = isFocus ? 7.5 : isHover ? 6.2 : 4.8
-
-        ctx.beginPath()
-        ctx.arc(x, y, r, 0, Math.PI * 2)
-        ctx.fillStyle = colorForGroup(node.group)
-        ctx.fill()
-
-        ctx.lineWidth = isFocus ? 2.2 : 1.2
-        ctx.strokeStyle = isFocus ? 'rgba(255,255,255,0.92)' : 'rgba(11,16,32,0.75)'
-        ctx.stroke()
-      }
-
-      // border
-      ctx.strokeStyle = 'rgba(255,255,255,0.10)'
-      ctx.lineWidth = 1
-      ctx.strokeRect(pad / 2, pad / 2, w - pad, h - pad)
-
-      rafId = window.requestAnimationFrame(step)
+          const node = params.data
+          const groupName = categories[node.category]?.name ?? 'unknown'
+          const mood = typeof node.mood === 'number' ? node.mood.toFixed(2) : '-'
+          const stance = typeof node.stance === 'number' ? node.stance.toFixed(2) : '-'
+          return [
+            `${node.name}`,
+            `group: ${groupName}`,
+            `id: ${node.value}`,
+            `degree: ${node.degree ?? 0}`,
+            `influence: ${node.influenceTier ?? 'unknown'}`,
+            `mood: ${mood}`,
+            `stance: ${stance}`,
+          ].join('<br/>')
+        },
+      },
+      animationDuration: 450,
+      animationDurationUpdate: 250,
+      legend: [
+        {
+          bottom: 38,
+          left: 'center',
+          textStyle: { color: 'rgba(220,230,255,0.72)', fontSize: 11 },
+        },
+      ],
+      series: [
+        {
+          type: 'graph',
+          layout: 'force',
+          data: nodes,
+          links,
+          categories,
+          roam: true,
+          zoom: localScale,
+          draggable: true,
+          focusNodeAdjacency: true,
+          force: {
+            repulsion: 190,
+            gravity: 0.12,
+            edgeLength: [55, 120],
+            friction: 0.18,
+          },
+          lineStyle: {
+            opacity: 0.35,
+          },
+          label: {
+            position: 'right',
+            show: false,
+          },
+          emphasis: {
+            focus: 'adjacency',
+            label: {
+              show: true,
+              color: '#fff',
+            },
+            lineStyle: {
+              width: 2.2,
+              opacity: 0.85,
+            },
+          },
+        },
+      ],
     }
-
-    rafId = window.requestAnimationFrame(step)
-    return () => {
-      disposed = true
-      if (rafId) window.cancelAnimationFrame(rafId)
-    }
-  }, [focusId, graph.edges, graph.nodes, indexById, size.h, size.w, localScale])
-
-  const hitTest = (clientX: number, clientY: number) => {
-    const host = hostRef.current
-    const canvas = canvasRef.current
-    const sim = simRef.current
-    if (!host || !canvas || !sim) return null
-
-    const rect = canvas.getBoundingClientRect()
-    const x = clientX - rect.left
-    const y = clientY - rect.top
-
-    const w = Math.max(1, rect.width)
-    const h = Math.max(1, rect.height)
-    const cx = w / 2
-    const cy = h / 2
-    const scale = Math.min(w, h) * 0.44 * localScale
-
-    let best: { idx: number; d2: number; sx: number; sy: number } | null = null
-    for (let i = 0; i < graph.nodes.length; i++) {
-      const ix = i * 2
-      const sx = cx + sim.pos[ix] * scale
-      const sy = cy + sim.pos[ix + 1] * scale
-      const dx = sx - x
-      const dy = sy - y
-      const d2 = dx * dx + dy * dy
-      const r = graph.nodes[i].id === focusId ? 8.5 : 6.5
-      if (d2 <= r * r && (!best || d2 < best.d2)) best = { idx: i, d2, sx, sy }
-    }
-
-    if (!best) return null
-    return { idx: best.idx, x, y, sx: best.sx, sy: best.sy, node: graph.nodes[best.idx] }
-  }
+  }, [focusId, graph.edges, graph.nodes, localScale, nodeMetaById, showLabels, sizeMetric])
 
   return (
-    <div ref={hostRef} className="agentGraph" style={height ? { height } : undefined}>
-      <canvas
-        ref={canvasRef}
-        className="agentGraph__canvas"
-        onPointerMove={(e) => {
-          const hit = hitTest(e.clientX, e.clientY)
-          if (!hit) {
-            hoverRef.current = null
-            setTip(null)
-            return
-          }
-          hoverRef.current = hit.node.id
-          setTip({ x: hit.x + 10, y: hit.y + 10, text: `${hit.node.label} · ${hit.node.group} · id=${hit.node.id}` })
-        }}
-        onPointerLeave={() => {
-          hoverRef.current = null
-          setTip(null)
-        }}
-        onPointerDown={(e) => {
-          if (e.button !== 0) return
-          const hit = hitTest(e.clientX, e.clientY)
-          if (!hit) return
-          const sim = simRef.current
-          if (!sim) return
-          sim.draggingIdx = hit.idx
-          ;(e.currentTarget as HTMLCanvasElement).setPointerCapture(e.pointerId)
-        }}
-        onPointerUp={(e) => {
-          const sim = simRef.current
-          if (!sim) return
-          const wasDragging = sim.draggingIdx != null
-          sim.draggingIdx = null
-          try {
-            ;(e.currentTarget as HTMLCanvasElement).releasePointerCapture(e.pointerId)
-          } catch {
-            // ignore
-          }
-
-          if (!wasDragging) return
-          const hit = hitTest(e.clientX, e.clientY)
-          if (hit && onSelectAgent) onSelectAgent(hit.node.id)
-        }}
-        onPointerCancel={(e) => {
-          const sim = simRef.current
-          if (sim) sim.draggingIdx = null
-          try {
-            ;(e.currentTarget as HTMLCanvasElement).releasePointerCapture(e.pointerId)
-          } catch {
-            // ignore
-          }
-        }}
-        onPointerMoveCapture={(e) => {
-          const sim = simRef.current
-          if (!sim || sim.draggingIdx == null) return
-
-          const canvas = canvasRef.current
-          if (!canvas) return
-          const rect = canvas.getBoundingClientRect()
-          const px = e.clientX - rect.left
-          const py = e.clientY - rect.top
-
-          const w = Math.max(1, rect.width)
-          const h = Math.max(1, rect.height)
-          const cx = w / 2
-          const cy = h / 2
-          const scale = Math.min(w, h) * 0.44 * localScale
-
-          const nx = clamp((px - cx) / scale, -0.95, 0.95)
-          const ny = clamp((py - cy) / scale, -0.95, 0.95)
-
-          const i = sim.draggingIdx
-          sim.pos[i * 2] = nx
-          sim.pos[i * 2 + 1] = ny
-          sim.iterationsLeft = Math.max(sim.iterationsLeft, 60)
+    <div className="agentGraph" style={height ? { height } : undefined}>
+      <ReactECharts
+        option={option}
+        style={{ width: '100%', height: '100%' }}
+        opts={{ renderer: 'canvas' }}
+        notMerge
+        onEvents={{
+          click: (params: any) => {
+            if (params?.dataType !== 'node' || !onSelectAgent) return
+            const rawId = params.data?.id ?? params.data?.value
+            const agentId = Number(rawId)
+            if (Number.isFinite(agentId)) onSelectAgent(agentId)
+          },
+          graphRoam: (params: any) => {
+            if (typeof params?.zoom !== 'number') return
+            const nextScale = clamp(params.zoom, 0.5, 2.0)
+            setLocalScale(nextScale)
+            if (onCanvasScaleChange) onCanvasScaleChange(nextScale)
+          },
         }}
       />
 
-      {tip && (
-        <div className="agentGraph__tip" style={{ left: tip.x, top: tip.y }}>
-          {tip.text}
-        </div>
-      )}
+      <div
+        style={{
+          position: 'absolute',
+          top: 8,
+          left: 8,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '6px 10px',
+          background: 'rgba(11, 16, 32, 0.82)',
+          border: '1px solid rgba(255,255,255,0.1)',
+          borderRadius: '10px',
+          fontSize: 11,
+          zIndex: 2,
+        }}
+      >
+        <span className="muted">size</span>
+        <select
+          className="select"
+          value={sizeMetric}
+          onChange={(e) => setSizeMetric(e.target.value === 'influence' ? 'influence' : 'degree')}
+          style={{ width: 120, fontSize: 11, padding: '2px 6px' }}
+        >
+          <option value="degree">degree</option>
+          <option value="influence">influence</option>
+        </select>
+        <label className="muted" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}>
+          <input type="checkbox" checked={showLabels} onChange={(e) => setShowLabels(e.target.checked)} />
+          labels
+        </label>
+      </div>
 
-      <div style={{
-        position: 'absolute',
-        bottom: 8,
-        left: 8,
-        right: 8,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        padding: '6px 10px',
-        background: 'rgba(11, 16, 32, 0.85)',
-        border: '1px solid rgba(255, 255, 255, 0.1)',
-        borderRadius: '10px',
-        fontSize: 12,
-      }}>
-        <span className="muted" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>Zoom 缩放</span>
+      <div
+        style={{
+          position: 'absolute',
+          bottom: 8,
+          left: 8,
+          right: 8,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '6px 10px',
+          background: 'rgba(11, 16, 32, 0.85)',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          borderRadius: '10px',
+          fontSize: 12,
+          zIndex: 2,
+        }}
+      >
+        <span className="muted" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>edge</span>
+        <span className="pill" style={{ fontSize: 10 }}>follow</span>
+        <span className="pill" style={{ fontSize: 10 }}>group</span>
+        <span className="pill" style={{ fontSize: 10 }}>message</span>
+        <span className="muted" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>Zoom</span>
         <input
           type="range"
           min={0.5}
@@ -409,9 +288,9 @@ export function AgentGraphCanvas({ graph, focusId, onSelectAgent, height, canvas
           step={0.05}
           value={localScale}
           onChange={(e) => {
-            const newScale = Number(e.target.value)
-            setLocalScale(newScale)
-            if (onCanvasScaleChange) onCanvasScaleChange(newScale)
+            const nextScale = Number(e.target.value)
+            setLocalScale(nextScale)
+            if (onCanvasScaleChange) onCanvasScaleChange(nextScale)
           }}
           style={{ flex: 1, minWidth: 60 }}
         />

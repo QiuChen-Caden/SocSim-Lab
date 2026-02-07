@@ -15,11 +15,13 @@ from pathlib import Path
 from typing import Optional, Dict, Any, TYPE_CHECKING, List, Union
 import json
 
-# Add OASIS to path
-# File: C:\Users\Lenovo\Desktop\SocSim-Lab\backend\oasis_integration.py
-# .parent (1) = backend, .parent (2) = SocSim-Lab, .parent (3) = Desktop
-# oasis-main is at C:\Users\Lenovo\Desktop\oasis-main
-OASIS_PATH = Path(__file__).parent.parent.parent / "oasis-main"
+# Add OASIS to path.
+# Prefer bundled project-local path: SocSim-Lab/oasis-main
+# Fallback to legacy sibling of project root for compatibility.
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+LOCAL_OASIS_PATH = PROJECT_ROOT / "oasis-main"
+LEGACY_OASIS_PATH = PROJECT_ROOT.parent / "oasis-main"
+OASIS_PATH = LOCAL_OASIS_PATH if LOCAL_OASIS_PATH.exists() else LEGACY_OASIS_PATH
 sys.path.insert(0, str(OASIS_PATH))
 DEEPSEEK_DEFAULT_KEY = "sk-5c79877413f346ceb7d4fdbf6daed4e6"
 

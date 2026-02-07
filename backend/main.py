@@ -94,7 +94,7 @@ class Settings(BaseSettings):
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-# Load .env so os.environ reflects local configuration (without overriding real env).
+# 加载 .env 文件使 os.environ 反映本地配置（不覆盖真实环境变量）。
 _backend_env = Path(__file__).resolve().parent / ".env"
 _root_env = PROJECT_ROOT / ".env"
 load_dotenv(_backend_env, override=False)
@@ -111,7 +111,7 @@ DEFAULT_LLM_API_KEY = (
 )
 
 def _resolve_project_path(raw_path: str) -> Path:
-    """Resolve relative paths against project root for portable deployments."""
+    """解析相对于项目根目录的路径，以便于可移植部署。"""
     path = Path(raw_path)
     if path.is_absolute():
         return path
@@ -123,7 +123,7 @@ OASIS_RUNTIME_DB_PATH = _resolve_project_path(
     os.environ.get("OASIS_RUNTIME_DB_PATH", "data/oasis_simulation_run.db")
 )
 
-# Import OASIS integration
+# 导入 OASIS 集成模块
 from oasis_integration import (
     initialize_oasis_simulation,
     run_simulation_step,
@@ -136,7 +136,7 @@ from oasis_integration import (
     OASIS_AVAILABLE,
 )
 
-# Path to personas file (stable regardless of CWD)
+# personas 文件路径（与当前工作目录无关）
 PERSONAS_PATH = str(Path(__file__).resolve().parent / "twitter_personas_20260123_222506.json")
 
 # ============= System Log Management =============
@@ -144,7 +144,7 @@ _system_logs: List[dict] = []
 _max_system_logs = 500
 
 def _add_system_log(level: str, message: str, category: str = "system") -> None:
-    """Add a system log and broadcast via WebSocket."""
+    """添加系统日志并通过 WebSocket 广播。"""
     global _system_logs
     import time
     log_entry = {
@@ -158,13 +158,13 @@ def _add_system_log(level: str, message: str, category: str = "system") -> None:
     if len(_system_logs) > _max_system_logs:
         _system_logs = _system_logs[-_max_system_logs:]
 
-    # Broadcast to WebSocket clients
+    # 向 WebSocket 客户端广播
     try:
         asyncio.create_task(ws_manager.broadcast_system_log(log_entry))
     except:
-        pass  # WebSocket not ready yet
+        pass  # WebSocket 尚未就绪
 
-    # Also print to console for debugging
+    # 同时打印到控制台以便调试
     level_icon = {"info": "", "ok": "✓", "error": "✗", "warn": "⚠"}.get(level, "")
     print(f"[{level.upper()}] {level_icon} {message}")
 
@@ -185,20 +185,20 @@ def sys_warn(msg: str, category: str = "system") -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan manager."""
-    # Startup
+    """应用程序生命周期管理器。"""
+    # 启动流程
     print(f"Starting {settings.app_name} v{settings.version}")
     sys_info(f"Starting {settings.app_name} v{settings.version}", category="lifecycle")
     init_db()
     print("Database initialized")
     sys_ok("Database initialized", category="lifecycle")
 
-    # Load persisted simulation state early so OASIS can consume runtime config.
+    # 尽早加载持久化的仿真状态，以便 OASIS 使用运行时配置。
     global _sim_state
     _sim_state = get_simulation_state()
     config_key = (_sim_state.config.llm_api_key or "").strip()
     if config_key:
-        # Keep user-saved key; only enable if user didn't explicitly disable.
+        # 保留用户指定的密钥；仅在用户未明确禁用时才启用。
         if _sim_state.config.llm_enabled:
             _sim_state.config.llm_enabled = True
         _sim_state.config.llm_provider = _sim_state.config.llm_provider or DEFAULT_LLM_PROVIDER
@@ -219,7 +219,7 @@ async def lifespan(app: FastAPI):
             )
     save_simulation_state(_sim_state)
 
-    # Initialize OASIS if available
+    # 如果 OASIS 可用，则初始化
     oasis_initialized = False
     if settings.use_oasis and OASIS_AVAILABLE:
         print("Initializing OASIS simulation...")
@@ -238,18 +238,18 @@ async def lifespan(app: FastAPI):
         print("OASIS not available, using fallback ticker")
         sys_warn("OASIS not available, using fallback ticker", category="oasis")
 
-    # Auto-start simulation: set is_running to True on startup
+    # 自动启动仿真：启动时将 is_running 设置为 True
     _sim_state.is_running = True
     save_simulation_state(_sim_state)
     print(f"Simulation auto-started: tick={_sim_state.tick}, is_running={_sim_state.is_running}")
     sys_ok(f"Simulation auto-started at tick={_sim_state.tick}", category="simulation")
 
-    # Start simulation ticker (uses OASIS or fallback)
+    # 启动仿真计时器（使用 OASIS 或备用模式）
     ticker_task = asyncio.create_task(simulation_ticker())
 
     yield
 
-    # Shutdown
+    # 关闭流程
     ticker_task.cancel()
     if oasis_initialized:
         await close_simulation()
@@ -263,7 +263,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS middleware
+# CORS 中间件
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
@@ -377,7 +377,7 @@ _ticker_lock = asyncio.Lock()
 
 
 def _get_action_description(action_type: str, action_args: dict) -> str:
-    """Convert OASIS action type to readable description."""
+    """将 OASIS 动作类型转换为可读描述。"""
     normalized = str(action_type).upper()
     if "CREATE_POST" in normalized:
         content = action_args.get("content", "")
@@ -409,7 +409,7 @@ def _get_action_description(action_type: str, action_args: dict) -> str:
 
 
 def _normalize_agent_id_list(state: SimulationState) -> list[int]:
-    """Return agent ids as integers, regardless of key type."""
+    """以整数形式返回代理 ID，无论键类型如何。"""
     ids: list[int] = []
     for raw_key in state.agents.keys():
         try:
@@ -420,7 +420,7 @@ def _normalize_agent_id_list(state: SimulationState) -> list[int]:
 
 
 def _get_agent_state_ref(state: SimulationState, agent_id: int) -> Optional[dict[str, Any]]:
-    """Get mutable agent state dict by id, supporting int/str keys."""
+    """通过 ID 获取可变的代理状态字典，支持 int/str 键。"""
     if agent_id in state.agents:
         agent = state.agents[agent_id]
     elif str(agent_id) in state.agents:
@@ -431,14 +431,14 @@ def _get_agent_state_ref(state: SimulationState, agent_id: int) -> Optional[dict
 
 
 def _get_agent_group(state: SimulationState, agent_id: int) -> str:
-    """Get agent group name if available."""
+    """获取代理组名（如果可用）。"""
     agent = state.agents.get(agent_id) or state.agents.get(str(agent_id)) or {}
     profile = agent.get("profile", {})
     return str(profile.get("group", ""))
 
 
 def _agent_ids_by_group(state: SimulationState, group_name: str) -> list[int]:
-    """Find agent ids by exact group name (case-insensitive)."""
+    """通过精确组名查找代理 ID（不区分大小写）。"""
     target = group_name.strip().lower()
     matched: list[int] = []
     for agent_id in _normalize_agent_id_list(state):
@@ -448,7 +448,7 @@ def _agent_ids_by_group(state: SimulationState, group_name: str) -> list[int]:
 
 
 def _parse_assignments(raw: str) -> dict[str, float]:
-    """Parse assignment fragments like: mood=0.6 stance=-0.2 resources=120."""
+    """解析赋值片段，例如：mood=0.6 stance=-0.2 resources=120。"""
     assignments: dict[str, float] = {}
     for key, value in re.findall(r"(mood|stance|resources)\s*=\s*([+-]?\d+(?:\.\d+)?)", raw, flags=re.IGNORECASE):
         key_norm = key.lower()
@@ -462,7 +462,7 @@ def _parse_assignments(raw: str) -> dict[str, float]:
 
 
 def _apply_agent_patch(state: SimulationState, agent_id: int, patch: dict[str, float]) -> bool:
-    """Apply parsed numeric patch to an agent state."""
+    """将解析的数值补丁应用到代理状态。"""
     agent_state = _get_agent_state_ref(state, agent_id)
     if not agent_state:
         return False
@@ -479,13 +479,13 @@ def _apply_agent_patch(state: SimulationState, agent_id: int, patch: dict[str, f
 
 def _execute_intervention(state: SimulationState, command: str, target_agent_id: Optional[int]) -> dict[str, Any]:
     """
-    Execute a supported intervention command and mutate simulation state in-place.
-    Returns a structured execution summary for API response/event payload.
+    执行支持的干预命令并就地修改仿真状态。
+    返回用于 API 响应/事件负载的结构化执行摘要。
     """
     original = command.strip()
     normalized = original
 
-    # Frontend group mode prefixes commands as: [Group A, Group B] actual command
+    # 前端组模式将命令前缀为：[Group A, Group B] 实际命令
     if normalized.startswith("[") and "]" in normalized:
         normalized = normalized.split("]", 1)[1].strip()
 
@@ -519,7 +519,7 @@ def _execute_intervention(state: SimulationState, command: str, target_agent_id:
             effects.append("agent_state_set")
             state_changed = True
 
-    # If targetAgentId is provided, allow direct key-value command fragments.
+    # 如果提供了 targetAgentId，则允许直接键值命令片段。
     if target_agent_id is not None and not set_agent_match:
         patch = _parse_assignments(normalized)
         if patch and _apply_agent_patch(state, target_agent_id, patch):
@@ -568,13 +568,13 @@ def _execute_intervention(state: SimulationState, command: str, target_agent_id:
 
 
 async def simulation_ticker():
-    """Background task that advances the simulation tick."""
+    """推进仿真刻度的后台任务。"""
     global _ticker_running, _sim_state
 
-    # Initialize state
+    # 初始化状态
     _sim_state = get_simulation_state()
 
-    # Initialize agents dict if empty
+    # 如果为空，则初始化代理字典
     if not _sim_state.agents:
         all_agents = get_all_agents()
         for agent in all_agents:
@@ -590,7 +590,7 @@ async def simulation_ticker():
         save_simulation_state(_sim_state)
         print(f"[Ticker] Initialized {len(_sim_state.agents)} agents")
 
-    # Initialize groups dict if empty
+    # 如果为空，则初始化组字典
     if not _sim_state.groups:
         all_groups = get_all_group_profiles()
         _sim_state.groups = {g.key: g.to_dict() for g in all_groups}
@@ -599,17 +599,17 @@ async def simulation_ticker():
 
     while True:
         try:
-            # Check if OASIS is available
+            # 检查 OASIS 是否可用
             use_oasis = settings.use_oasis and OASIS_AVAILABLE
 
             if _sim_state.is_running:
                 async with _ticker_lock:
                     if use_oasis:
-                        # Use OASIS simulation
+                        # 使用 OASIS 仿真
                         result = await run_simulation_step()
                         _sim_state.tick = result.get("tick", _sim_state.tick)
 
-                        # Log activity
+                        # 记录活动
                         if "actions" in result:
                             actions = result.get('actions', 0)
                             active_agents = result.get('active_agents', 0)

@@ -1,5 +1,5 @@
 """
-Algorithms package for OASIS frontend integration.
+用于 OASIS 前端集成的算法包。
 """
 from .layout import (
     Point2D,
@@ -26,7 +26,7 @@ from .emotion import (
 )
 
 __all__ = [
-    # Layout
+    # 布局
     "Point2D",
     "LayoutResult",
     "ForceDirectedLayout",
@@ -35,7 +35,7 @@ __all__ = [
     "layout_with_igraph",
     "layout_with_networkx",
     "compute_agent_layout",
-    # Emotion
+    # 情感
     "EmotionScore",
     "LexiconEmotionAnalyzer",
     "RuleBasedEmotionAnalyzer",

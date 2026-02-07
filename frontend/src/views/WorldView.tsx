@@ -35,7 +35,7 @@ export function WorldView() {
           setRealRelationEdges(res.edges)
         }
       } catch {
-        // keep fallback graph behavior
+        // 保持回退图谱行为 keep fallback graph behavior
       }
     }
     loadNetwork()

@@ -28,7 +28,7 @@ python -m venv venv
 venv\Scripts\activate     # Windows
 source venv/bin/activate  # Linux/Mac
 pip install -r requirements.txt
-python main.py            # Start server (http://localhost:8765)
+python main.py            # Start server (http://localhost:8000)
 ```
 
 ### Configuration
@@ -63,9 +63,9 @@ SocSim-Lab/
 │   │       ├── WorkbenchView.tsx      # Experiment control interface
 │   │       ├── WorldView.tsx          # 2D agent world visualization
 │   │       ├── FeedView.tsx           # Social media feed
-│   │       └── ReplayView.tsx         # Timeline replay system
+│   │       └── ReplayView.tsx         # System log viewer (events, timeline, bookmarks)
 │   ├── package.json
-│   └── vite.config.ts    # Proxy config: /api -> http://127.0.0.1:8765
+│   └── vite.config.ts    # Proxy config: /api -> http://127.0.0.1:8000
 ├── backend/              # FastAPI + Python
 │   ├── main.py           # FastAPI app + REST/WebSocket endpoints
 │   ├── requirements.txt

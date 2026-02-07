@@ -1,17 +1,26 @@
 @echo off
 REM SocSim Lab - Startup Script
 REM This script starts both the backend and frontend servers
+setlocal
+
+set "ROOT=%~dp0"
+set "BACKEND_DIR=%ROOT%backend"
+set "FRONTEND_DIR=%ROOT%frontend"
+set "DATA_DIR=%ROOT%data"
+set "OASIS_DB_PATH=%DATA_DIR%\oasis_frontend.db"
+set "OASIS_RUNTIME_DB_PATH=%DATA_DIR%\oasis_simulation_run.db"
+set "CONDA_ENV=socsim-py311"
 
 echo ========================================
 echo SocSim Lab - Starting Development Environment
 echo ========================================
 echo.
 
-REM Check if Python is installed
-python --version >nul 2>&1
+REM Check if Conda is installed
+where conda >nul 2>&1
 if errorlevel 1 (
-    echo ERROR: Python is not installed or not in PATH
-    echo Please install Python 3.10+ to run the backend
+    echo ERROR: conda not found in PATH.
+    echo Please install Anaconda/Miniconda and retry.
     pause
     exit /b 1
 )
@@ -25,42 +34,61 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo Step 1: Starting Backend Server...
-echo ========================================
-cd backend
-
-REM Create virtual environment if it doesn't exist
-if not exist "venv" (
-    echo Creating Python virtual environment...
-    python -m venv venv
+if not exist "%ROOT%oasis-main" (
+    echo ERROR: oasis-main folder not found at %ROOT%oasis-main
+    echo Please ensure oasis-main is present in the project root.
+    pause
+    exit /b 1
 )
 
-REM Activate virtual environment
-call venv\Scripts\activate.bat
+if not exist "%DATA_DIR%" (
+    mkdir "%DATA_DIR%"
+)
 
-REM Install dependencies if needed
-if not exist "venv\Lib\site-packages\fastapi" (
+echo Step 1: Preparing Backend Environment...
+echo ========================================
+cd /d "%BACKEND_DIR%"
+
+REM Create conda env if it doesn't exist
+set "ENV_FOUND="
+for /f %%i in ('conda env list ^| findstr /i /c:"%CONDA_ENV%"') do set "ENV_FOUND=1"
+if not defined ENV_FOUND (
+    echo Creating Conda env %CONDA_ENV% (Python 3.11)...
+    conda create -n %CONDA_ENV% python=3.11 -y
+)
+
+REM Install backend dependencies if needed
+conda run -n %CONDA_ENV% python -m pip show fastapi >nul 2>&1
+if errorlevel 1 (
     echo Installing backend dependencies...
-    pip install -r requirements.txt
+    conda run -n %CONDA_ENV% python -m pip install -r requirements.txt
+)
+
+REM Install OASIS (oasis-main) if needed
+conda run -n %CONDA_ENV% python -m pip show camel-oasis >nul 2>&1
+if errorlevel 1 (
+    echo Installing OASIS (oasis-main)...
+    conda run -n %CONDA_ENV% python -m pip install -e ..\oasis-main
 )
 
 REM Import personas if database doesn't exist
-if not exist "data\oasis_frontend.db" (
+if not exist "%OASIS_DB_PATH%" (
     echo.
     echo Importing Twitter personas...
-    python import_personas.py
+    set "OASIS_DB_PATH=%OASIS_DB_PATH%"
+    conda run -n %CONDA_ENV% python import_personas.py --file twitter_personas_20260123_222506.json
 )
 
 REM Start backend in new window
 echo Starting backend server on http://localhost:8000
-start "SocSim Backend" cmd /k "cd /d %CD% && venv\Scripts\activate.bat && set PYTHONIOENCODING=utf-8 && python main.py"
+start "SocSim Backend" cmd /k "cd /d %CD% && set OASIS_DB_PATH=%OASIS_DB_PATH% && set OASIS_RUNTIME_DB_PATH=%OASIS_RUNTIME_DB_PATH% && set PYTHONIOENCODING=utf-8 && conda run -n %CONDA_ENV% python main.py"
 
 cd ..
 
 echo.
 echo Step 2: Starting Frontend Server...
 echo ========================================
-cd frontend
+cd /d "%FRONTEND_DIR%"
 
 REM Install frontend dependencies if needed
 if not exist "node_modules\vite" (
@@ -85,3 +113,4 @@ echo ========================================
 echo Development environment stopped
 echo ========================================
 pause
+endlocal

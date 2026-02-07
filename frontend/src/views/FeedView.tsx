@@ -165,7 +165,7 @@ export function FeedView() {
 
     return {
       animation: false,
-      grid: { top: 30, right: 20, bottom: 30, left: 50 },
+      grid: { top: 60, right: 20, bottom: 30, left: 50 },
       tooltip: {
         trigger: 'axis',
         axisPointer: { type: 'cross' }
@@ -173,7 +173,10 @@ export function FeedView() {
       legend: {
         data: ['Active Agents 活跃智能体', 'Posts', 'Events', 'Logs', 'Total'],
         textStyle: { color: '#999', fontSize: 11 },
-        top: 0
+        top: 5,
+        itemWidth: 20,
+        itemHeight: 10,
+        itemGap: 12
       },
       xAxis: {
         type: 'category',

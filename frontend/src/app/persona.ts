@@ -20,7 +20,7 @@ import type {
 } from './types'
 import { agentGroup, clamp, hash01 } from './util'
 
-// ============= Constants =============
+// ============= 常量 Constants =============
 
 const AGE_BANDS: AgeBand[] = ['18-24', '25-34', '35-44', '45-54', '55-64', '65+', 'unknown']
 const GENDERS: Gender[] = ['male', 'female', 'unknown']
@@ -30,7 +30,7 @@ const SENTIMENTS: Sentiment[] = ['angry', 'calm', 'happy', 'sad', 'fearful', 'su
 const COUNTRIES = ['United States', 'USA', 'United Kingdom', 'Canada', 'unknown'] as const
 const REGIONS = ['New York', 'California', 'Texas', 'Chicago', 'Louisville, KY', 'Howard County, Maryland', 'unknown'] as const
 
-// Professions by domain
+// 按领域分类的职业 Professions by domain
 const PROFESSIONS_BY_DOMAIN: Record<string, string[]> = {
   'social movements': ['activist', 'social_worker', 'community_organizer', 'social activist'],
   'racial justice': ['civil_rights_advocate', 'community_organizer', 'social_worker'],
@@ -46,7 +46,7 @@ const PROFESSIONS_BY_DOMAIN: Record<string, string[]> = {
   'business': ['entrepreneur', 'business_owner', 'manager'],
 }
 
-// Domains of expertise
+// 专业领域 Domains of expertise
 const DOMAINS_OF_EXPERTISE = [
   'social movements',
   'racial justice',
@@ -74,7 +74,7 @@ const DOMAINS_OF_EXPERTISE = [
   'political commentary',
 ]
 
-// Topics for issue stances
+// 议题立场的话题 Topics for issue stances
 const TOPICS = [
   'BlackLivesMatter',
   'Black Lives Matter',
@@ -99,7 +99,7 @@ const TOPICS = [
   'unknown',
 ]
 
-// ============= Utility Functions =============
+// ============= 工具函数 Utility Functions =============
 
 function rand01(seed: number, salt: number): number {
   return hash01(seed * 131 + salt * 17.3)
@@ -117,28 +117,28 @@ function range01(min: number, max: number, t: number): number {
   return clamp(lerp(min, max, t), 0, 1)
 }
 
-// ============= Identity Generation =============
+// ============= 身份信息生成 Identity Generation =============
 
 function makeIdentity(seed: number, agentId: number, _group: GroupProfile): Identity {
   const t1 = rand01(seed + agentId * 7, 1)
   const t2 = rand01(seed + agentId * 11, 2)
 
-  // Generate username (combination of name and random)
+  // 生成用户名（名字和随机组合） Generate username (combination of name and random)
   const firstName = ['Alex', 'Mikki', 'Ruthanne', 'John', 'Amy', 'JSun', 'Andrea', 'Shoman', 'QueenSadie', 'Louis']
   const lastNamePart = ['Chronicle', 'Chandler', 'Sanch', 'Fuzz', 'Gamie', 'News', 'Wright', 'BoBina', 'Rat', 'Short']
   const username = `${pick(firstName, t1)}${pick(lastNamePart, t2)}`
 
-  // Age band
+  // 年龄段 Age band
   const age_band = pick(AGE_BANDS, rand01(seed + agentId * 17, 4))
 
-  // Gender
+  // 性别 Gender
   const gender = pick(GENDERS, rand01(seed + agentId * 19, 5))
 
-  // Location
+  // 位置 Location
   const country = pick(COUNTRIES, rand01(seed + agentId * 23, 6))
   const region_city = pick(REGIONS, rand01(seed + agentId * 29, 7))
 
-  // Domain of expertise (1-3 domains)
+  // 专业领域（1-3个） Domain of expertise (1-3 domains)
   const domainCount = 1 + Math.floor(rand01(seed + agentId * 31, 8) * 3)
   const domain_of_expertise: string[] = []
   for (let i = 0; i < domainCount; i++) {
@@ -148,7 +148,7 @@ function makeIdentity(seed: number, agentId: number, _group: GroupProfile): Iden
     }
   }
 
-  // Profession based on domain
+  // 基于领域的职业 Profession based on domain
   const primaryDomain = domain_of_expertise[0] || 'community'
   const professionOptions = PROFESSIONS_BY_DOMAIN[primaryDomain] || ['community_member', 'unknown', 'activist']
   const profession = pick(professionOptions, rand01(seed + agentId * 41, 10))
@@ -166,10 +166,10 @@ function makeIdentity(seed: number, agentId: number, _group: GroupProfile): Iden
   }
 }
 
-// ============= Psychometrics Generation =============
+// ============= 心理测量生成 Psychometrics Generation =============
 
 function makeBigFive(seed: number, agentId: number): BigFive {
-  // Base values around 0.5 with variation
+  // 基准值约0.5，带变化 Base values around 0.5 with variation
   const base = 0.5
   const variation = 0.2
 
@@ -183,7 +183,7 @@ function makeBigFive(seed: number, agentId: number): BigFive {
 }
 
 function makeMoralFoundations(seed: number, agentId: number, group: GroupProfile): MoralFoundations {
-  // Moral foundations vary by group somewhat
+  // 道德基础因群体而异 Moral foundations vary by group somewhat
   const base = 0.5
   const groupBias = group.polarization > 0.5 ? 0.1 : 0
 
@@ -207,17 +207,17 @@ function makePsychometrics(seed: number, agentId: number, group: GroupProfile): 
   }
 }
 
-// ============= Social Status Generation =============
+// ============= 社会地位生成 Social Status Generation =============
 
 function makeSocialStatus(seed: number, agentId: number, _group: GroupProfile): SocialStatus {
-  // Influence tier based on network size proxy
+  // 基于网络规模代理值的影响力层级 Influence tier based on network size proxy
   const networkSizeProxy = Math.floor(rand01(seed + agentId * 41, 307) * 5)
   let influence_tier: InfluenceTier
   if (networkSizeProxy >= 4) influence_tier = 'elite'
   else if (networkSizeProxy >= 1) influence_tier = 'opinion_leader'
   else influence_tier = 'ordinary_user'
 
-  // Economic band correlates somewhat with influence
+  // 经济水平与影响力有一定相关性 Economic band correlates somewhat with influence
   const economicBandValue = rand01(seed + agentId * 43, 311)
   let economic_band: EconomicBand
   if (economicBandValue > 0.66) economic_band = 'high'
@@ -233,10 +233,10 @@ function makeSocialStatus(seed: number, agentId: number, _group: GroupProfile): 
   }
 }
 
-// ============= Behavior Profile Generation =============
+// ============= 行为画像生成 Behavior Profile Generation =============
 
 function makeBehaviorProfile(seed: number, agentId: number): BehaviorProfile {
-  // Posting cadence
+  // 发帖频率 Posting cadence
   const postsPerDay = rand01(seed + agentId * 47, 401) * 5
   const patternCount = 1 + Math.floor(rand01(seed + agentId * 53, 403) * 3)
   const diurnalPatternSet = new Set<DiurnalPattern>()
@@ -244,7 +244,7 @@ function makeBehaviorProfile(seed: number, agentId: number): BehaviorProfile {
     diurnalPatternSet.add(pick(DIURNAL_PATTERNS, rand01(seed + agentId * 59 + i * 11, 407 + i)))
   }
 
-  // Rhetoric style
+  // 修辞风格 Rhetoric style
   const civility = range01(0.3, 1.0, rand01(seed + agentId * 61, 413))
   const evidenceCitation = range01(0.3, 0.8, rand01(seed + agentId * 67, 419))
 
@@ -260,7 +260,7 @@ function makeBehaviorProfile(seed: number, agentId: number): BehaviorProfile {
   }
 }
 
-// ============= Cognitive State Generation =============
+// ============= 认知状态生成 Cognitive State Generation =============
 
 function makeCoreAffect(seed: number, agentId: number): CoreAffect {
   const sentiment = pick(SENTIMENTS, rand01(seed + agentId * 71, 501))
@@ -276,9 +276,9 @@ function makeIssueStances(seed: number, agentId: number, identity: Identity): Is
   const stances: IssueStance[] = []
   const stanceCount = 1 + Math.floor(rand01(seed + agentId * 79, 509) * 3)
 
-  // Generate stances based on domains of expertise
+  // 基于专业领域生成立场 Generate stances based on domains of expertise
   const availableTopics = TOPICS.filter(t => {
-    // Match topics to domains
+    // 匹配主题与领域 Match topics to domains
     const domain = identity.domain_of_expertise[0] || ''
     if (domain.includes('racial') && t.toLowerCase().includes('black')) return true
     if (domain.includes('politics') && (t.toLowerCase().includes('trump') || t.toLowerCase().includes('political'))) return true
@@ -305,7 +305,7 @@ function makeCognitiveState(seed: number, agentId: number, identity: Identity): 
   }
 }
 
-// ============= Group Profile Generation =============
+// ============= 群体画像生成 Group Profile Generation =============
 
 function stratumFor(seed: number, groupKey: string): SocialStratum {
   const t = rand01(seed, groupKey.length * 97 + groupKey.charCodeAt(0))
@@ -342,7 +342,7 @@ export function makeGroupProfiles(seed: number): Record<string, GroupProfile> {
   return out
 }
 
-// ============= Main Profile Generation Function =============
+// ============= 主画像生成函数 Main Profile Generation Function =============
 
 export function makeAgentProfile(seed: number, agentId: number, groups: Record<string, GroupProfile>): AgentProfile {
   const groupKey = agentGroup(agentId)
@@ -356,7 +356,7 @@ export function makeAgentProfile(seed: number, agentId: number, groups: Record<s
     normSummary: 'n/a',
   }
 
-  // Generate all components
+  // 生成所有组件 Generate all components
   const identity = makeIdentity(seed, agentId, group)
   const psychometrics = makePsychometrics(seed, agentId, group)
   const social_status = makeSocialStatus(seed, agentId, group)
@@ -365,7 +365,7 @@ export function makeAgentProfile(seed: number, agentId: number, groups: Record<s
 
   return {
     id: agentId,
-    name: identity.username, // Use username from identity
+    name: identity.username, // 使用身份中的用户名 Use username from identity
     group: groupKey,
     identity,
     psychometrics,
@@ -375,9 +375,9 @@ export function makeAgentProfile(seed: number, agentId: number, groups: Record<s
   }
 }
 
-// ============= Twitter Personas Data (Real Data from JSON) =============
+// ============= Twitter Personas 数据（来自 JSON 的真实数据） Twitter Personas Data (Real Data from JSON) =============
 
-// Raw Twitter personas data extracted from twitter_personas_20260123_222506.json
+// 从 twitter_personas_20260123_222506.json 中提取的原始 Twitter personas 数据 Raw Twitter personas data extracted from twitter_personas_20260123_222506.json
 const TWITTER_PERSONAS_DATA = {
   "user_988804598394707968": {
     username: "LeafChronicle",
@@ -997,7 +997,7 @@ const TWITTER_PERSONAS_DATA = {
   }
 }
 
-// User ID to numeric ID mapping
+// 用户 ID 到数字 ID 的映射 User ID to numeric ID mapping
 const TWITTER_USER_IDS: Record<string, number> = {
   "user_988804598394707968": 1,
   "user_2678618421": 2,
@@ -1031,15 +1031,16 @@ const TWITTER_USER_IDS: Record<string, number> = {
   "user_043621c5": 30,
 }
 
-// Reverse mapping: numeric ID to user key
+// 反向映射：数字 ID 到用户键 Reverse mapping: numeric ID to user key
 const NUMERIC_TO_USER_KEY: Record<number, string> = {}
 for (const [userKey, numericId] of Object.entries(TWITTER_USER_IDS)) {
   NUMERIC_TO_USER_KEY[numericId] = userKey
 }
 
-// ============= Twitter Persona to AgentProfile Conversion =============
+// ============= Twitter Persona 到 AgentProfile 转换 Twitter Persona to AgentProfile Conversion =============
 
 /**
+ * 将 Twitter persona 数据转换为 AgentProfile 格式
  * Convert Twitter persona data to AgentProfile format
  */
 export function twitterPersonaToAgentProfile(
@@ -1048,39 +1049,39 @@ export function twitterPersonaToAgentProfile(
 ): AgentProfile {
   const userKey = NUMERIC_TO_USER_KEY[numericId]
   if (!userKey || !TWITTER_PERSONAS_DATA[userKey as keyof typeof TWITTER_PERSONAS_DATA]) {
-    // Fallback to generated profile if Twitter data not found
+    // 如果未找到 Twitter 数据，回退到生成的画像 Fallback to generated profile if Twitter data not found
     return makeAgentProfile(20260121, numericId, makeGroupProfiles(20260121))
   }
 
   const data = TWITTER_PERSONAS_DATA[userKey as keyof typeof TWITTER_PERSONAS_DATA]
 
-  // Validate and convert age_band
+  // 验证并转换 age_band Validate and convert age_band
   const validAgeBands: AgeBand[] = ['18-24', '25-34', '35-44', '45-54', '55-64', '65+', 'unknown']
   const age_band: AgeBand = validAgeBands.includes(data.age_band as AgeBand) ? (data.age_band as AgeBand) : 'unknown'
 
-  // Validate and convert gender
+  // 验证并转换性别 Validate and convert gender
   const validGenders: Gender[] = ['male', 'female', 'unknown']
   const gender: Gender = validGenders.includes(data.gender as Gender) ? (data.gender as Gender) : 'unknown'
 
-  // Validate and convert sentiment
+  // 验证并转换情感 Validate and convert sentiment
   const validSentiments: Sentiment[] = ['angry', 'calm', 'happy', 'sad', 'fearful', 'surprised']
   const sentiment: Sentiment = validSentiments.includes(data.sentiment as Sentiment) ? (data.sentiment as Sentiment) : 'calm'
 
-  // Validate and convert influence_tier
+  // 验证并转换影响力层级 Validate and convert influence_tier
   const validInfluenceTiers: InfluenceTier[] = ['ordinary_user', 'opinion_leader', 'elite']
   const influence_tier: InfluenceTier = validInfluenceTiers.includes(data.influence_tier as InfluenceTier) ? (data.influence_tier as InfluenceTier) : 'ordinary_user'
 
-  // Validate and convert economic_band
+  // 验证并转换经济水平 Validate and convert economic_band
   const validEconomicBands: EconomicBand[] = ['low', 'medium', 'high', 'unknown']
   const economic_band: EconomicBand = validEconomicBands.includes(data.economic_band as EconomicBand) ? (data.economic_band as EconomicBand) : 'unknown'
 
-  // Validate and convert diurnal_pattern
+  // 验证并转换活动时段模式 Validate and convert diurnal_pattern
   const validDiurnalPatterns: DiurnalPattern[] = ['morning', 'afternoon', 'evening', 'night', 'unknown']
   const diurnal_pattern: DiurnalPattern[] = data.diurnal_pattern.filter((p: string) => validDiurnalPatterns.includes(p as DiurnalPattern)) as DiurnalPattern[]
 
-  // 给 big_five 和 moral_foundations 添加基于 agentId 的变化，让进度条显示更明显
+  // 为 big_five 和 moral_foundations 添加基于 agentId 的变化，使进度条显示更明显 Add variation to big_five and moral_foundations based on agentId to make progress bars more visible
   const addVariation = (base: number, salt: number): number => {
-    // 如果原始值不是0.5，保留原始值；如果是0.5，则添加变化
+    // 如果原始值不是 0.5，保留原始值；如果是 0.5，则添加变化 If original value is not 0.5, keep it; if 0.5, add variation
     if (Math.abs(base - 0.5) > 0.01) return base
     const variation = (hash01(numericId * 7 + salt) - 0.5) * 0.6  // -0.3 到 0.3
     return clamp(base + variation, 0.1, 0.9)
@@ -1157,6 +1158,7 @@ export function twitterPersonaToAgentProfile(
 }
 
 /**
+ * 获取所有 Twitter persona 的数字 ID（1-30）
  * Get all Twitter persona numeric IDs (1-30)
  */
 export function getTwitterPersonaIds(): number[] {
@@ -1164,6 +1166,7 @@ export function getTwitterPersonaIds(): number[] {
 }
 
 /**
+ * 获取 Twitter personas 的数量
  * Get the count of Twitter personas
  */
 export function getTwitterPersonaCount(): number {

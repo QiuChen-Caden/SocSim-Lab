@@ -2,8 +2,8 @@
 
 > **版本**: v3.2
 > **更新日期**: 2026-02-07
-> **Base URL**: `http://localhost:8765`
-> **WebSocket**: `ws://localhost:8765/ws`
+> **Base URL**: `http://localhost:8000`
+> **WebSocket**: `ws://localhost:8000/ws`
 
 ---
 
@@ -49,9 +49,9 @@ SocSim Lab API 提供完整的社交模拟后端服务，基于 FastAPI 框架�
 
 | 文档类型 | 地址 |
 |---------|------|
-| Swagger UI | http://localhost:8765/docs |
-| ReDoc | http://localhost:8765/redoc |
-| OpenAPI JSON | http://localhost:8765/openapi.json |
+| Swagger UI | http://localhost:8000/docs |
+| ReDoc | http://localhost:8000/redoc |
+| OpenAPI JSON | http://localhost:8000/openapi.json |
 
 ---
 
@@ -1261,7 +1261,7 @@ interface SimulationConfig {
 {
   "llmProvider": "vllm",
   "llmModel": "meta-llama/Llama-3-8b",
-  "llmBaseUrl": "http://localhost:8000/v1",
+  "llmBaseUrl": "https://api.deepseek.com/v1",
   "llmApiKey": "",
   "llmTemperature": 0.7,
   "llmMaxTokens": 512
@@ -1292,7 +1292,7 @@ interface SimulationConfig {
 通过 `PATCH /api/state` 端点更新配置：
 
 ```bash
-curl -X PATCH http://localhost:8765/api/state \
+curl -X PATCH http://localhost:8000/api/state \
   -H "Content-Type: application/json" \
   -d '{
     "config": {

@@ -57,8 +57,16 @@ def get_db_path() -> str:
     env_db_path = os.environ.get("OASIS_DB_PATH")
     if env_db_path:
         if osp.isabs(env_db_path):
-            return env_db_path
-        return osp.normpath(osp.join(PROJECT_ROOT, env_db_path))
+            resolved = env_db_path
+        # Respect explicit relative paths like ../data when running from backend.
+        elif env_db_path.startswith("."):
+            resolved = osp.normpath(osp.join(os.getcwd(), env_db_path))
+        else:
+            resolved = osp.normpath(osp.join(PROJECT_ROOT, env_db_path))
+        db_dir = osp.dirname(resolved)
+        if db_dir:
+            os.makedirs(db_dir, exist_ok=True)
+        return resolved
 
     os.makedirs(DB_DIR, exist_ok=True)
     db_path = osp.join(DB_DIR, DB_NAME)
@@ -81,11 +89,24 @@ def get_db_path() -> str:
 
 
 @contextmanager
+def _configure_sqlite(conn: sqlite3.Connection) -> None:
+    """Apply SQLite pragmas for better concurrency."""
+    try:
+        conn.execute("PRAGMA journal_mode=WAL;")
+        conn.execute("PRAGMA synchronous=NORMAL;")
+        conn.execute("PRAGMA busy_timeout=5000;")
+        conn.execute("PRAGMA foreign_keys=ON;")
+    except Exception:
+        # Best-effort; do not block startup if PRAGMA fails.
+        pass
+
+
 def get_db_connection():
     """Context manager for database connections."""
     db_path = get_db_path()
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(db_path, timeout=30)
     conn.row_factory = sqlite3.Row  # Enable column access by name
+    _configure_sqlite(conn)
     try:
         yield conn
     finally:
@@ -697,6 +718,13 @@ def get_snapshot_by_id(snapshot_id: str) -> Optional[SimulationSnapshot]:
         return None
 
 
+def delete_snapshot(snapshot_id: str) -> bool:
+    """Delete a snapshot by ID. Returns True if deleted."""
+    with get_db_cursor() as cursor:
+        cursor.execute("DELETE FROM simulation_snapshot WHERE id = ?", (snapshot_id,))
+        return cursor.rowcount > 0
+
+
 def save_timeline_event(event: TimelineEvent) -> None:
     """Save a timeline event to the database."""
     import time
@@ -852,19 +880,36 @@ def get_all_group_profiles() -> list[GroupProfile]:
         if not existing_groups:
             return _generate_default_group_profiles()
 
+        tier_to_stratum = {
+            InfluenceTier.ELITE.value: SocialStratum.ELITE,
+            InfluenceTier.OPINION_LEADER.value: SocialStratum.UPPER_MIDDLE,
+            InfluenceTier.ORDINARY_USER.value: SocialStratum.MIDDLE,
+        }
+
         # Generate profiles for existing groups
         for group_name in existing_groups:
-            # Get agents in this group to calculate stats
-            cursor.execute("""
-                SELECT
-                    COUNT(DISTINCT ug.user_id) as agent_count,
-                    AVG(ss.influence_tier) as avg_influence,
-                    AVG(ss.economic_band) as avg_economic
+            cursor.execute(
+                "SELECT COUNT(DISTINCT user_id) as agent_count FROM user_group WHERE group_name = ?",
+                (group_name,),
+            )
+            stats = cursor.fetchone()
+            agent_count = stats["agent_count"] if stats else 0
+
+            # Determine dominant influence tier by count
+            cursor.execute(
+                """
+                SELECT ss.influence_tier, COUNT(*) as cnt
                 FROM user_group ug
                 LEFT JOIN user_social_status ss ON ug.user_id = ss.user_id
                 WHERE ug.group_name = ?
-            """, (group_name,))
-            stats = cursor.fetchone()
+                GROUP BY ss.influence_tier
+                ORDER BY cnt DESC
+                """,
+                (group_name,),
+            )
+            tier_row = cursor.fetchone()
+            tier_value = (tier_row["influence_tier"] if tier_row else None) or InfluenceTier.ORDINARY_USER.value
+            dominant_stratum = tier_to_stratum.get(str(tier_value), SocialStratum.MIDDLE)
 
             # Generate group profile with some variation based on group name
             group_hash = hash(group_name) % 100
@@ -872,20 +917,9 @@ def get_all_group_profiles() -> list[GroupProfile]:
             polarization = 0.2 + ((group_hash // 5) % 60) / 100.0  # 0.2-0.8
             trust_climate = 0.3 + ((group_hash // 3) % 50) / 100.0  # 0.3-0.8
 
-            # Determine dominant stratum based on group characteristics
-            influence_val = stats["avg_influence"] or 1.0
-            if influence_val >= 2.0:
-                dominant_stratum = SocialStratum.ELITE
-            elif influence_val >= 1.5:
-                dominant_stratum = SocialStratum.UPPER_MIDDLE
-            elif influence_val >= 1.0:
-                dominant_stratum = SocialStratum.MIDDLE
-            else:
-                dominant_stratum = SocialStratum.WORKING
-
             groups.append(GroupProfile(
                 key=group_name,
-                label=f"{group_name} ({stats['agent_count']} agents)" if stats else group_name,
+                label=f"{group_name} ({agent_count} agents)" if agent_count else group_name,
                 dominant_stratum=dominant_stratum,
                 cohesion=cohesion,
                 polarization=polarization,

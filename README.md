@@ -1,7 +1,7 @@
 # SocSim Lab - 社交模拟可视化平台
 
 > **版本**: v3.2 | **更新日期**: 2026-02-07
-> **大规模社交模拟可视化平台**：百万级智能体渲染 · 实时干预控制 · 时间轴回放 · FastAPI 后端集成
+> **大规模社交模拟可视化平台**：百万级智能体渲染 · 实时干预控制 · 系统日志查看 · FastAPI 后端集成
 
 ## 项目简介
 
@@ -27,7 +27,7 @@
   - 宏观模式：网格热力图展示群体情绪分布
 - **流式日志系统**：实时增量展示模拟运行日志
 - **干预控制台**：支持自然语言命令对模拟进行实时干预
-- **时间轴回放**：基于事件流的时间跳转和状态重建
+- **系统日志**：基于事件流的系统日志查看与时间轴回放
 - **社交信息流**：模拟社交平台的 Feed 流展示，支持多种排序方式
 - **快照系统**：保存和恢复模拟状态
 
@@ -68,7 +68,7 @@ SocSim-Lab/                      # 项目根目录
 │   │   │   ├── WorkbenchView.tsx         # 工作台
 │   │   │   ├── WorldView.tsx             # 世界视图
 │   │   │   ├── FeedView.tsx              # 社交信息流
-│   │   │   └── ReplayView.tsx            # 时间回放
+│   │   │   └── ReplayView.tsx            # 系统日志查看器
 │   │   ├── App.tsx                       # 应用入口
 │   │   ├── main.tsx                      # React 挂载点
 │   │   └── styles.css                    # 全局样式
@@ -111,49 +111,85 @@ SocSim-Lab/                      # 项目根目录
 ```bash
 start.bat
 ```
+或
+```bash
+start_oneclick.bat
+```
 
 **Linux/Mac:**
 ```bash
 chmod +x start.sh && ./start.sh
 ```
+或
+```bash
+chmod +x start_oneclick.sh && ./start_oneclick.sh
+```
+
+> 前置条件：Windows 需要 conda。Linux/Mac 推荐 conda + Python 3.11；若无 conda，请确保 python3 3.10/3.11（3.12+ 不支持 OASIS）。
+> 确保 `oasis-main/` 位于项目根目录（SocSim-Lab/oasis-main）。
 
 启动脚本会自动完成以下操作：
-1. 创建 Python 虚拟环境并安装依赖
-2. 导入 Twitter personas 数据到 SQLite 数据库
-3. 启动后端 API 服务（http://localhost:8000）
-4. 启动前端开发服务器（http://localhost:5173）
+1. 准备 Python 3.11 环境（conda 优先，venv 兜底）
+2. 安装后端依赖 + oasis-main
+3. 导入 Twitter personas 数据到 SQLite 数据库
+4. 设置运行库路径（默认 `data/oasis_simulation_run.db`）
+5. 启动后端 API 服务（http://localhost:8000）
+6. 启动前端开发服务器（http://localhost:5173）
 
 ### 方式二：手动启动
 
 #### 后端服务
 
+**方式 A：Conda（推荐，Linux/Mac/Windows 通用）**
 ```bash
 cd backend
 
-# 创建虚拟环境（首次运行）
-python -m venv venv
+# 创建环境（首次运行）
+conda create -n socsim-py311 python=3.11 -y
 
-# 激活虚拟环境
-# Windows:
-venv\Scripts\activate
-# Linux/Mac:
-source venv/bin/activate
-
-# 安装依赖（首次运行）
-pip install -r requirements.txt
+# 安装依赖
+conda run -n socsim-py311 python -m pip install -r requirements.txt
+conda run -n socsim-py311 python -m pip install -e ../oasis-main
 
 # 导入 Twitter personas 数据（首次运行）
-python import_personas.py
+OASIS_DB_PATH=../data/oasis_frontend.db \
+  conda run -n socsim-py311 python import_personas.py --file twitter_personas_20260123_222506.json
 
 # 启动后端服务
-python main.py
+OASIS_DB_PATH=../data/oasis_frontend.db \
+OASIS_RUNTIME_DB_PATH=../data/oasis_simulation_run.db \
+  conda run -n socsim-py311 python main.py
+```
+
+**方式 B：venv（无 conda 时，Linux/Mac）**
+```bash
+cd backend
+
+# 创建 venv（首次运行）
+python3 -m venv venv
+source venv/bin/activate
+
+# 安装依赖
+pip install -r requirements.txt
+pip install -e ../oasis-main
+
+# 导入 Twitter personas 数据（首次运行）
+OASIS_DB_PATH=../data/oasis_frontend.db \
+  python import_personas.py --file twitter_personas_20260123_222506.json
+
+# 启动后端服务
+OASIS_DB_PATH=../data/oasis_frontend.db \
+OASIS_RUNTIME_DB_PATH=../data/oasis_simulation_run.db \
+  python main.py
 ```
 
 **后端服务地址**：
-- API 地址：http://localhost:8765
-- Swagger 文档：http://localhost:8765/docs
-- ReDoc 文档：http://localhost:8765/redoc
-- WebSocket：ws://localhost:8765/ws
+- API 地址：http://localhost:8000
+- Swagger 文档：http://localhost:8000/docs
+- ReDoc 文档：http://localhost:8000/redoc
+- WebSocket：ws://localhost:8000/ws
+
+> 提示：如需启用 LLM 行为，请在启动前设置 `LLM_API_KEY`（或 `DEEPSEEK_API_KEY` / `OPENAI_API_KEY`）。
 
 #### 前端服务
 
@@ -298,9 +334,9 @@ npm run lint
 - 情绪分布：饼图展示情绪构成
 - 极化指数：群体观点分化程度
 
-### 4. Replay 回放 ⏮️
+### 4. System Log 系统日志 ⏮️
 
-基于完整事件流的时间轴回放功能：
+基于完整事件流的系统日志查看与时间轴回放功能：
 
 #### 时间轴控制
 - 播放/暂停/停止

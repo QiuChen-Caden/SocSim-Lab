@@ -128,7 +128,7 @@ function Shell() {
                 Feed 信息流
               </button>
               <button className={`tab ${active === 'replay' ? 'tab--active' : ''}`} onClick={() => setActive('replay')}>
-                Replay 回放
+                System Log 系统日志
               </button>
             </nav>
           </header>

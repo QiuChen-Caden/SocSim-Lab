@@ -1,6 +1,6 @@
 """
-Standalone database initialization for the frontend demo.
-This creates the necessary tables without requiring the full OASIS package.
+前端演示的独立数据库初始化。
+此脚本创建必要的表，无需完整的 OASIS 包。
 """
 import sqlite3
 import os
@@ -8,7 +8,7 @@ import os.path as osp
 import json
 from typing import Any
 
-# Database paths
+# 数据库路径
 BASE_DIR = osp.dirname(__file__)  # backend/
 PROJECT_ROOT = osp.dirname(BASE_DIR)
 DB_DIR = osp.join(PROJECT_ROOT, "data")
@@ -17,15 +17,15 @@ SCHEMA_DIR = osp.join(BASE_DIR, "schema")
 
 
 def get_db_path() -> str:
-    """Get the database file path."""
+    """获取数据库文件路径。"""
     os.makedirs(DB_DIR, exist_ok=True)
     return osp.join(DB_DIR, DB_NAME)
 
 
 def create_base_tables(cursor: sqlite3.Cursor) -> None:
-    """Create the base OASIS user and post tables."""
+    """创建基础 OASIS 用户和帖子表。"""
 
-    # User table
+    # 用户表
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS user (
             user_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -39,7 +39,7 @@ def create_base_tables(cursor: sqlite3.Cursor) -> None:
         )
     """)
 
-    # Post table
+    # 帖子表
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS post (
             post_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -59,9 +59,9 @@ def create_base_tables(cursor: sqlite3.Cursor) -> None:
 
 
 def create_extended_tables(cursor: sqlite3.Cursor) -> None:
-    """Create the extended tables for psychometrics and visualization."""
+    """创建心理测量和可视化的扩展表。"""
 
-    # Big Five Personality Traits
+    # 大五人格特质
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS user_big_five (
             user_id INTEGER PRIMARY KEY,

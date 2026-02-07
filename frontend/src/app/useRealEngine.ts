@@ -1,22 +1,22 @@
 /**
- * Real API-based engine for OASIS simulation.
+ * 基于 OASIS 模拟的真实 API 引擎 Real API-based engine for OASIS simulation.
  *
- * This hook connects to the backend API service for real simulation
- * instead of using mock data.
+ * 此 Hook 连接到后端 API 服务进行真实模拟 This hook connects to the backend API service for real simulation
+ * 而不是使用模拟数据 instead of using mock data.
  */
 import { useEffect, useRef, useCallback } from 'react'
 import { useSim } from './SimulationProvider'
 import api, { wsClient, type WebSocketMessage } from './api'
 
-// Whether to use real API or mock
+// 是否使用真实 API 或模拟 Whether to use real API or mock
 const USE_REAL_API = import.meta.env.VITE_USE_REAL_API === 'true'
 
 // 暂时禁用 WebSocket，使用 HTTP 轮询
 const USE_WEBSOCKET = false
 
 /**
- * Hook that uses the real backend API for simulation.
- * Replaces useMockEngine when the backend is available.
+ * 使用真实后端 API 进行模拟的 Hook Hook that uses the real backend API for simulation.
+ * 当后端可用时替换 useMockEngine Replaces useMockEngine when the backend is available.
  */
 export function useRealEngine() {
   const sim = useSim()
@@ -24,26 +24,26 @@ export function useRealEngine() {
   const wsUnsubscribeRef = useRef<(() => void) | null>(null)
   const isInitializedRef = useRef(false)
 
-  // Initialize simulation state from backend
+  // 从后端初始化模拟状态 Initialize simulation state from backend
   const initializeFromBackend = useCallback(async () => {
     try {
-      // Get full simulation state
+      // 获取完整模拟状态 Get full simulation state
       const state = await api.state.get()
 
-      // Get all agents
+      // 获取所有智能体 Get all agents
       const agents = await api.agents.getAll()
 
-      // Fetch all agent states in parallel (much faster than sequential)
+      // 并行获取所有智能体状态（比顺序快得多） Fetch all agent states in parallel (much faster than sequential)
       const agentStatePromises = agents.map(agent =>
         api.agents.getState(agent.id).catch(err => {
           console.warn(`[RealEngine] Failed to get state for agent ${agent.id}:`, err)
-          // Return default state on error
+          // 错误时返回默认状态 Return default state on error
           return { mood: 0.5, stance: 0, resources: 0.5, lastAction: 'error' }
         })
       )
       const agentStates = await Promise.all(agentStatePromises)
 
-      // Build agents map with real states
+      // 使用真实状态构建智能体映射 Build agents map with real states
       const agentsMap: Record<number, { profile: typeof agents[0]; state: typeof agentStates[0] }> = {}
       for (let i = 0; i < agents.length; i++) {
         agentsMap[agents[i].id] = {
@@ -52,17 +52,17 @@ export function useRealEngine() {
         }
       }
 
-      // Warm cache for core resources.
+      // 预热核心资源缓存 Warm cache for core resources.
       await api.events.getAll({ limit: 350 })
       await api.logs.getAll({ limit: 450 })
       await api.feed.getAll({ limit: 220 })
 
-      // Update simulation state
+      // 更新模拟状态 Update simulation state
       sim.actions.setTick(state.tick)
 
-      // Initialize agents in simulation with real states
+      // 使用真实状态在模拟中初始化智能体 Initialize agents in simulation with real states
       for (const [id, agent] of Object.entries(agentsMap)) {
-        // patchAgent will ensure agent exists via ensureAgent
+        // patchAgent 将通过 ensureAgent 确保智能体存在 patchAgent will ensure agent exists via ensureAgent
         sim.actions.patchAgent(Number(id), agent.state)
       }
 
@@ -73,7 +73,7 @@ export function useRealEngine() {
     }
   }, [sim])
 
-  // WebSocket message handler
+  // WebSocket 消息处理器 WebSocket message handler
   const handleWebSocketMessage = useCallback((message: WebSocketMessage) => {
     switch (message.type) {
       case 'tick_update':
@@ -111,7 +111,7 @@ export function useRealEngine() {
       }
 
       case 'simulation_state': {
-        // Full state update - could trigger a re-init
+        // 完整状态更新 - 可能触发重新初始化 Full state update - could trigger a re-init
         console.log('[RealEngine] Received full state update')
         break
       }
@@ -127,7 +127,7 @@ export function useRealEngine() {
         break
 
       case 'pong':
-        // Heartbeat response, ignore
+        // 心跳响应，忽略 Heartbeat response, ignore
         break
 
       default:
@@ -135,40 +135,40 @@ export function useRealEngine() {
     }
   }, [sim])
 
-  // Sync simulation state to backend periodically and poll for updates
+  // 定期同步模拟状态到后端并轮询更新 Sync simulation state to backend periodically and poll for updates
   useEffect(() => {
     if (!isInitializedRef.current) {
       initializeFromBackend()
     }
 
-    // Set up periodic sync and polling
+    // 设置定期同步和轮询 Set up periodic sync and polling
     syncIntervalRef.current = setInterval(async () => {
       try {
-        // Fetch latest state from backend
+        // 从后端获取最新状态 Fetch latest state from backend
         const backendState = await api.state.get()
 
-        // Update local state with backend values (only if different to avoid loops)
+        // 使用后端值更新本地状态（仅当不同时以避免循环） Update local state with backend values (only if different to avoid loops)
         sim.dispatch({ type: 'set_tick', tick: backendState.tick })
 
-        // Sync isRunning - only toggle if different
+        // 同步 isRunning - 仅当不同时切换 Sync isRunning - only toggle if different
         const currentIsRunning = sim.state.isRunning
         if (backendState.isRunning !== currentIsRunning) {
           sim.dispatch({ type: 'toggle_run' })
         }
 
-        // Sync speed
+        // 同步速度 Sync speed
         if (backendState.speed !== sim.state.speed) {
           sim.dispatch({ type: 'set_speed', speed: backendState.speed })
         }
 
-        // Sync selectedAgentId (user selection) to backend
+        // 将 selectedAgentId（用户选择）同步到后端 Sync selectedAgentId (user selection) to backend
         await api.state.patch({
           selectedAgentId: sim.state.selectedAgentId,
         })
       } catch (error) {
         console.error('[RealEngine] Sync/poll failed:', error)
       }
-    }, 2000) // Poll every 2 seconds to reduce load
+    }, 2000) // 每 2 秒轮询一次以减少负载 Poll every 2 seconds to reduce load
 
     return () => {
       if (syncIntervalRef.current) {
@@ -177,25 +177,25 @@ export function useRealEngine() {
     }
   }, [sim.dispatch, sim.state.selectedAgentId, initializeFromBackend])
 
-  // WebSocket connection (暂时禁用)
+  // WebSocket 连接（暂时禁用） WebSocket connection (temporarily disabled)
   useEffect(() => {
     if (!USE_WEBSOCKET) {
       console.log('[RealEngine] WebSocket disabled, using HTTP polling only')
       return
     }
 
-    // Connect to WebSocket
+    // 连接到 WebSocket Connect to WebSocket
     wsClient.connect()
 
-    // Subscribe to relevant events
+    // 订阅相关事件 Subscribe to relevant events
     wsClient.subscribe({
       eventTypes: ['tick', 'post', 'event', 'log', 'agent_update', 'state', 'error'],
     })
 
-    // Set up message listener
+    // 设置消息监听器 Set up message listener
     wsUnsubscribeRef.current = wsClient.onMessage(handleWebSocketMessage)
 
-    // Ping every 30 seconds to keep connection alive
+    // 每 30 秒发送一次 ping 以保持连接 Ping every 30 seconds to keep connection alive
     const pingInterval = setInterval(() => {
       wsClient.ping()
     }, 30000)
@@ -209,21 +209,21 @@ export function useRealEngine() {
     }
   }, [handleWebSocketMessage])
 
-  // Handle simulation control actions (user-initiated only)
-  // Don't trigger on polling updates - use a ref to track the source
+  // 处理模拟控制操作（仅限用户发起） Handle simulation control actions (user-initiated only)
+  // 不要在轮询更新时触发 - 使用 ref 来跟踪来源 Don't trigger on polling updates - use a ref to track the source
   const lastIsRunningRef = useRef(false)
 
   useEffect(() => {
-    // Check if this is a user-initiated change (not from polling)
+    // 检查这是否是用户发起的更改（不是来自轮询） Check if this is a user-initiated change (not from polling)
     const isUserInitiated = sim.state.isRunning !== lastIsRunningRef.current
     lastIsRunningRef.current = sim.state.isRunning
 
     if (!isUserInitiated) {
-      return // Skip if this change came from polling
+      return // 如果此更改来自轮询则跳过 Skip if this change came from polling
     }
 
-    // This effect responds to USER simulation control changes
-    // and forwards them to the backend
+    // 此效果响应用户模拟控制更改 This effect responds to USER simulation control changes
+    // 并将它们转发到后端 and forwards them to the backend
     const controlSimulation = async () => {
       try {
         if (sim.state.isRunning) {
@@ -236,7 +236,7 @@ export function useRealEngine() {
       }
     }
 
-    // Debounce control changes
+    // 防抖控制更改 Debounce control changes
     const timeoutId = setTimeout(controlSimulation, 100)
     return () => clearTimeout(timeoutId)
   }, [sim.state.isRunning, sim.state.speed])
@@ -249,6 +249,7 @@ export function useRealEngine() {
 }
 
 /**
+ * 条件 Hook：如果可用则使用真实 API，否则回退到模拟
  * Conditional hook that uses real API if available, otherwise falls back to mock.
  */
 export function useEngine() {

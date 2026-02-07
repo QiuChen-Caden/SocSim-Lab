@@ -1,8 +1,8 @@
 ﻿"""
-OASIS Frontend Integration Backend - Main FastAPI Application
+OASIS 前端集成后端 - 主 FastAPI 应用程序
 
-This backend service provides REST API and WebSocket endpoints
-to integrate the OASIS simulation platform with the frontend demo.
+此后端服务提供 REST API 和 WebSocket 端点
+以将 OASIS 仿真平台与前端演示集成。
 """
 import uuid
 import time
@@ -22,6 +22,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings
+from dotenv import load_dotenv
 
 from models import (
     init_db,
@@ -36,6 +37,7 @@ from models import (
     create_snapshot,
     get_all_snapshots,
     get_snapshot_by_id,
+    delete_snapshot as delete_snapshot_record,
     save_timeline_event,
     get_timeline_events,
     save_log_line,
@@ -69,40 +71,56 @@ from algorithms import (
 
 from websocket import manager as ws_manager
 
-# Ensure Unicode logs do not crash on Windows GBK output.
+# 确保 Unicode 日志在 Windows GBK 输出下不会崩溃。
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
-# ============= Configuration =============
+# ============= 配置 =============
 
 class Settings(BaseSettings):
-    """Application settings."""
+    """应用程序设置。"""
     app_name: str = "OASIS Frontend Backend"
     version: str = "0.1.0"
     debug: bool = True
     cors_origins: List[str] = ["http://localhost:5173", "http://localhost:5174", "http://localhost:5175", "http://localhost:3000"]
-    use_oasis: bool = True  # Enable OASIS simulation
+    use_oasis: bool = True  # 启用 OASIS 仿真
 
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
 
 
-settings = Settings()
-DEFAULT_DEEPSEEK_KEY = "sk-5c79877413f346ceb7d4fdbf6daed4e6"
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+# Load .env so os.environ reflects local configuration (without overriding real env).
+_backend_env = Path(__file__).resolve().parent / ".env"
+_root_env = PROJECT_ROOT / ".env"
+load_dotenv(_backend_env, override=False)
+load_dotenv(_root_env, override=False)
+
+settings = Settings()
+DEFAULT_LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "deepseek")
+DEFAULT_LLM_MODEL = os.environ.get("LLM_MODEL", "deepseek-chat")
+DEFAULT_LLM_BASE_URL = os.environ.get("LLM_BASE_URL", "https://api.deepseek.com/v1")
+DEFAULT_LLM_API_KEY = (
+    os.environ.get("LLM_API_KEY")
+    or os.environ.get("DEEPSEEK_API_KEY")
+    or os.environ.get("OPENAI_API_KEY")
+)
 
 def _resolve_project_path(raw_path: str) -> Path:
     """Resolve relative paths against project root for portable deployments."""
     path = Path(raw_path)
     if path.is_absolute():
         return path
+    if str(path).startswith("."):
+        return (Path.cwd() / path).resolve()
     return (PROJECT_ROOT / path).resolve()
 
 OASIS_RUNTIME_DB_PATH = _resolve_project_path(
-    os.environ.get("OASIS_RUNTIME_DB_PATH", "data/oasis_simulation.db")
+    os.environ.get("OASIS_RUNTIME_DB_PATH", "data/oasis_simulation_run.db")
 )
 
 # Import OASIS integration
@@ -118,8 +136,8 @@ from oasis_integration import (
     OASIS_AVAILABLE,
 )
 
-# Path to personas file (relative to backend directory)
-PERSONAS_PATH = "twitter_personas_20260123_222506.json"
+# Path to personas file (stable regardless of CWD)
+PERSONAS_PATH = str(Path(__file__).resolve().parent / "twitter_personas_20260123_222506.json")
 
 # ============= System Log Management =============
 _system_logs: List[dict] = []
@@ -178,13 +196,27 @@ async def lifespan(app: FastAPI):
     # Load persisted simulation state early so OASIS can consume runtime config.
     global _sim_state
     _sim_state = get_simulation_state()
-    # Enforce DeepSeek runtime defaults for this project unless user overrides later.
-    _sim_state.config.llm_enabled = True
-    _sim_state.config.llm_provider = "deepseek"
-    _sim_state.config.llm_model = _sim_state.config.llm_model or "deepseek-chat"
-    _sim_state.config.llm_base_url = _sim_state.config.llm_base_url or "https://api.deepseek.com/v1"
-    if not _sim_state.config.llm_api_key:
-        _sim_state.config.llm_api_key = DEFAULT_DEEPSEEK_KEY
+    config_key = (_sim_state.config.llm_api_key or "").strip()
+    if config_key:
+        # Keep user-saved key; only enable if user didn't explicitly disable.
+        if _sim_state.config.llm_enabled:
+            _sim_state.config.llm_enabled = True
+        _sim_state.config.llm_provider = _sim_state.config.llm_provider or DEFAULT_LLM_PROVIDER
+        _sim_state.config.llm_model = _sim_state.config.llm_model or DEFAULT_LLM_MODEL
+        _sim_state.config.llm_base_url = _sim_state.config.llm_base_url or DEFAULT_LLM_BASE_URL
+    elif DEFAULT_LLM_API_KEY:
+        _sim_state.config.llm_enabled = True
+        _sim_state.config.llm_provider = _sim_state.config.llm_provider or DEFAULT_LLM_PROVIDER
+        _sim_state.config.llm_model = _sim_state.config.llm_model or DEFAULT_LLM_MODEL
+        _sim_state.config.llm_base_url = _sim_state.config.llm_base_url or DEFAULT_LLM_BASE_URL
+        _sim_state.config.llm_api_key = DEFAULT_LLM_API_KEY
+    else:
+        if _sim_state.config.llm_enabled:
+            _sim_state.config.llm_enabled = False
+            sys_warn(
+                "LLM disabled: no API key found (set LLM_API_KEY/DEEPSEEK_API_KEY/OPENAI_API_KEY)",
+                category="llm",
+            )
     save_simulation_state(_sim_state)
 
     # Initialize OASIS if available
@@ -1035,24 +1067,33 @@ async def patch_agent_state(
     lastAction: Optional[str] = Body(None),
 ):
     """Update an agent's state."""
+    global _sim_state
     state = get_simulation_state()
 
-    if agent_id not in state.agents:
+    agent_key: Any = None
+    if agent_id in state.agents:
+        agent_key = agent_id
+    elif str(agent_id) in state.agents:
+        agent_key = str(agent_id)
+
+    if agent_key is None:
         raise HTTPException(status_code=404, detail=f"Agent {agent_id} state not found")
 
+    agent_state = state.agents[agent_key]["state"]
     if mood is not None:
-        state.agents[agent_id]["state"]["mood"] = mood
+        agent_state["mood"] = mood
     if stance is not None:
-        state.agents[agent_id]["state"]["stance"] = stance
+        agent_state["stance"] = stance
     if resources is not None:
-        state.agents[agent_id]["state"]["resources"] = resources
+        agent_state["resources"] = resources
     if lastAction is not None:
-        state.agents[agent_id]["state"]["lastAction"] = lastAction
+        agent_state["lastAction"] = lastAction
 
     save_simulation_state(state)
+    _sim_state = state
 
     # Emit update
-    await ws_manager.emit_agent_update(agent_id, state.agents[agent_id]["state"])
+    await ws_manager.emit_agent_update(agent_id, agent_state)
 
     return {"status": "ok"}
 
@@ -1202,6 +1243,20 @@ async def patch_state(
     if config is not None:
         merged_config = state.config.to_dict()
         merged_config.update(config)
+        # If LLM enabled without API key, disable to prevent failing calls.
+        if merged_config.get("llmEnabled") and not merged_config.get("llmApiKey"):
+            if DEFAULT_LLM_API_KEY:
+                merged_config["llmApiKey"] = DEFAULT_LLM_API_KEY
+                merged_config["llmProvider"] = merged_config.get("llmProvider") or DEFAULT_LLM_PROVIDER
+                merged_config["llmModel"] = merged_config.get("llmModel") or DEFAULT_LLM_MODEL
+                merged_config["llmBaseUrl"] = merged_config.get("llmBaseUrl") or DEFAULT_LLM_BASE_URL
+            else:
+                merged_config["llmEnabled"] = False
+                merged_config["llmProvider"] = "stub"
+                sys_warn(
+                    "LLM disabled: missing API key (set LLM_API_KEY/DEEPSEEK_API_KEY/OPENAI_API_KEY)",
+                    category="llm",
+                )
         state.config = SimulationConfig.from_dict(merged_config)
         if settings.use_oasis and OASIS_AVAILABLE:
             await update_simulation_config(state.config.to_dict())
@@ -1537,7 +1592,9 @@ async def load_snapshot(snapshot_id: str):
 @app.delete("/api/snapshots/{snapshot_id}")
 async def delete_snapshot(snapshot_id: str):
     """Delete a snapshot."""
-    # TODO: Implement delete in database.py
+    deleted = delete_snapshot_record(snapshot_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail=f"Snapshot {snapshot_id} not found")
     return {"status": "deleted", "snapshotId": snapshot_id}
 
 
@@ -1701,7 +1758,14 @@ async def get_agent_network(
         return {"edges": edges, "source": "missing_runtime_db"}
 
     try:
-        conn = sqlite3.connect(str(db_path))
+        conn = sqlite3.connect(str(db_path), timeout=30)
+        try:
+            conn.execute("PRAGMA journal_mode=WAL;")
+            conn.execute("PRAGMA synchronous=NORMAL;")
+            conn.execute("PRAGMA busy_timeout=5000;")
+            conn.execute("PRAGMA foreign_keys=ON;")
+        except Exception:
+            pass
         cur = conn.cursor()
         cur.execute(
             """

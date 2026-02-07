@@ -150,7 +150,7 @@ export function buildEgoAgentGraph(opts: {
   const direct = pickIdsDeterministic({ seed: opts.seed, base: focusId, count: directCount, maxExclusive, exclude: picked })
   for (const id of direct) nodes.push(nodeOf(id))
 
-  // second hop: sprinkle a few neighbors-of-neighbors to make the subgraph less star-like
+  // 第二跳：添加一些邻居的邻居，使子图不那么星形 second hop: sprinkle a few neighbors-of-neighbors to make the subgraph less star-like
   const remaining = maxNodes - nodes.length
   if (remaining > 0) {
     const secondHopSeeds = direct.slice(0, Math.min(direct.length, 15))
@@ -174,7 +174,7 @@ export function buildEgoAgentGraph(opts: {
   const edges: AgentGraphEdge[] = []
   const edgeSeen = new Set<string>()
 
-  // focus -> direct neighbors
+  // 焦点 -> 直接邻居 focus -> direct neighbors
   for (let i = 1; i < Math.min(nodes.length, direct.length + 1); i++) {
     const a = focusId
     const b = nodes[i].id
@@ -183,7 +183,7 @@ export function buildEgoAgentGraph(opts: {
     edges.push({ source: a, target: b, strength: 0.9, kind: 'follow' })
   }
 
-  // add a few intra-group edges inside the sampled set
+  // 在采样集合内添加一些组内边 add a few intra-group edges inside the sampled set
   const ids = nodes.map((n) => n.id)
   for (const a of ids) {
     const groupA = agentGroup(a)
@@ -279,7 +279,7 @@ export function buildSampleAgentGraph(opts: {
 
   for (let i = 0; i < n; i++) nodes.push(nodeOf(i))
 
-  // ensure selected agent is visible in the sample graph (swap in)
+  // 确保选中的智能体在采样图中可见（swap in） ensure selected agent is visible in the sample graph (swap in)
   if (ensureId != null && ensureId < maxExclusive && !nodes.some((x) => x.id === ensureId)) {
     nodes[nodes.length - 1] = nodeOf(ensureId)
   }

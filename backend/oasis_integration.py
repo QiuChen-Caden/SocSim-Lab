@@ -29,12 +29,13 @@ def _resolve_project_path(raw_path: str) -> Path:
     path = Path(raw_path)
     if path.is_absolute():
         return path
+    if str(path).startswith("."):
+        return (Path.cwd() / path).resolve()
     return (PROJECT_ROOT / path).resolve()
 
 DEFAULT_RUNTIME_DB_PATH = _resolve_project_path(
-    os.environ.get("OASIS_RUNTIME_DB_PATH", "data/oasis_simulation.db")
+    os.environ.get("OASIS_RUNTIME_DB_PATH", "data/oasis_simulation_run.db")
 )
-DEEPSEEK_DEFAULT_KEY = "sk-5c79877413f346ceb7d4fdbf6daed4e6"
 
 # Type checking imports (not evaluated at runtime)
 if TYPE_CHECKING:
@@ -86,11 +87,11 @@ class OasisSimulation:
         self._lock = asyncio.Lock()
         self._platform_task = None
         self._runtime_config: dict[str, Any] = {
-            "llm_enabled": True,
+            "llm_enabled": False,
             "llm_provider": "deepseek",
             "llm_model": "deepseek-chat",
             "llm_base_url": "https://api.deepseek.com/v1",
-            "llm_api_key": DEEPSEEK_DEFAULT_KEY,
+            "llm_api_key": "",
             "llm_temperature": 0.7,
             "llm_max_tokens": 512,
             "llm_top_p": 1.0,
@@ -172,12 +173,11 @@ class OasisSimulation:
 
         try:
             if provider in {"openai", "deepseek"}:
-                if api_key:
-                    os.environ["OPENAI_API_KEY"] = api_key
-                    os.environ["DEEPSEEK_API_KEY"] = api_key
-                elif provider == "deepseek":
-                    os.environ["OPENAI_API_KEY"] = DEEPSEEK_DEFAULT_KEY
-                    os.environ["DEEPSEEK_API_KEY"] = DEEPSEEK_DEFAULT_KEY
+                if not api_key:
+                    print(f"[OASIS] Missing API key for provider={provider}; using StubModel")
+                    return StubModel(ModelType.STUB)
+                os.environ["OPENAI_API_KEY"] = api_key
+                os.environ["DEEPSEEK_API_KEY"] = api_key
                 if provider == "deepseek" and not base_url:
                     base_url = "https://api.deepseek.com/v1"
                 kwargs: dict[str, Any] = {
@@ -218,6 +218,7 @@ class OasisSimulation:
             db_dir = os.path.dirname(self.db_path)
             if db_dir:
                 os.makedirs(db_dir, exist_ok=True)
+            self._configure_runtime_db()
 
             # Load personas from JSON
             with open(personas_json_path, 'r', encoding='utf-8') as f:
@@ -295,6 +296,18 @@ class OasisSimulation:
         except Exception as e:
             print(f"Failed to create UserInfo for {user_id}: {e}")
             return None
+
+    def _configure_runtime_db(self) -> None:
+        """Apply WAL/busy_timeout to the runtime DB file."""
+        try:
+            conn = sqlite3.connect(self.db_path, timeout=30)
+            conn.execute("PRAGMA journal_mode=WAL;")
+            conn.execute("PRAGMA synchronous=NORMAL;")
+            conn.execute("PRAGMA busy_timeout=5000;")
+            conn.execute("PRAGMA foreign_keys=ON;")
+            conn.close()
+        except Exception as e:
+            print(f"[OASIS] Failed to configure runtime DB: {e}")
 
     def _generate_description(self, persona: Dict[str, Any]) -> str:
         """Generate a description from persona data."""
@@ -527,7 +540,7 @@ class OasisSimulation:
         """Read real OASIS actions from trace table for the current tick."""
         behaviors: list[Dict[str, Any]] = []
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = self._open_runtime_db()
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             cursor.execute(
@@ -594,6 +607,18 @@ class OasisSimulation:
             )
         return behaviors
 
+    def _open_runtime_db(self) -> sqlite3.Connection:
+        """Open runtime DB with safer concurrency settings."""
+        conn = sqlite3.connect(self.db_path, timeout=30)
+        try:
+            conn.execute("PRAGMA journal_mode=WAL;")
+            conn.execute("PRAGMA synchronous=NORMAL;")
+            conn.execute("PRAGMA busy_timeout=5000;")
+            conn.execute("PRAGMA foreign_keys=ON;")
+        except Exception:
+            pass
+        return conn
+
     async def get_posts(self, limit: int = 50) -> list[Dict[str, Any]]:
         """Get recent posts from the simulation."""
         if not self.env:
@@ -604,7 +629,7 @@ class OasisSimulation:
             import sqlite3
             posts = []
 
-            conn = sqlite3.connect(self.db_path)
+            conn = self._open_runtime_db()
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
 

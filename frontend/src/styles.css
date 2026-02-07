@@ -243,7 +243,7 @@ body {
 
 .grid {
   display: grid;
-  grid-template-columns: 7fr 3fr;
+  grid-template-columns: 6fr 4fr;
   gap: var(--space-md);
 }
 

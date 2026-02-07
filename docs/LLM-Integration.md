@@ -1,8 +1,9 @@
 # SocSim Lab - LLM 智能体集成指南
 
-> **文档版本**: v1.0
+> **文档版本**: v1.1
 > **创建日期**: 2026-02-06
-> **适用版本**: SocSim Lab v3.1+
+> **更新日期**: 2026-02-07
+> **适用版本**: SocSim Lab v3.2+
 
 ---
 
@@ -137,7 +138,7 @@ vLLM 支持本地或私有部署的开源模型，如 Llama、Mistral 等。
 {
   "llmProvider": "vllm",
   "llmModel": "meta-llama/Llama-3-8b",
-  "llmBaseUrl": "http://localhost:8000/v1",
+  "llmBaseUrl": "https://api.deepseek.com/v1",
   "llmApiKey": "",
   "llmTemperature": 0.7,
   "llmMaxTokens": 512
@@ -206,7 +207,7 @@ LLM_TIMEOUT_MS=30000
 ### 方式 3: REST API 更新
 
 ```bash
-curl -X PATCH http://localhost:8765/api/state \
+curl -X PATCH http://localhost:8000/api/state \
   -H "Content-Type: application/json" \
   -d '{
     "config": {
@@ -285,7 +286,7 @@ curl -X PATCH http://localhost:8765/api/state \
 
 ```javascript
 // 前端调用
-fetch('http://localhost:8765/api/state', {
+fetch('http://localhost:8000/api/state', {
   method: 'PATCH',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
@@ -306,7 +307,7 @@ fetch('http://localhost:8765/api/state', {
 ### 示例 2: 切换到本地 vLLM
 
 ```javascript
-fetch('http://localhost:8765/api/state', {
+fetch('http://localhost:8000/api/state', {
   method: 'PATCH',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
@@ -314,7 +315,7 @@ fetch('http://localhost:8765/api/state', {
       llmEnabled: true,
       llmProvider: 'vllm',
       llmModel: 'meta-llama/Llama-3-8b',
-      llmBaseUrl: 'http://localhost:8000/v1',
+      llmBaseUrl: 'https://api.deepseek.com/v1',
       llmApiKey: '',
       llmTemperature: 0.8,
       llmMaxTokens: 256,
@@ -327,7 +328,7 @@ fetch('http://localhost:8765/api/state', {
 ### 示例 3: 禁用 LLM（回退到规则模式）
 
 ```javascript
-fetch('http://localhost:8765/api/state', {
+fetch('http://localhost:8000/api/state', {
   method: 'PATCH',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
@@ -454,8 +455,9 @@ OASIS 框架会自动批处理多个智能体的请求，以提高效率。
 | 版本 | 日期 | 更新内容 |
 |------|------|---------|
 | v1.0 | 2026-02-06 | 初始版本，支持 OpenAI/DeepSeek/vLLM |
+| v1.1 | 2026-02-07 | 更新 API 地址为 8000 端口 |
 
 ---
 
 **文档维护**: SocSim Lab Team
-**最后更新**: 2026-02-06
+**最后更新**: 2026-02-07

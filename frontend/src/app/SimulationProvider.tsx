@@ -61,6 +61,7 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
   const seenEventIdsRef = useRef<Set<string>>(new Set())
   const seenLogIdsRef = useRef<Set<string>>(new Set())
   const seenInterventionIdsRef = useRef<Set<string>>(new Set())
+  const seenSystemLogIdsRef = useRef<Set<string>>(new Set())
 
   useEffect(() => {
     if (!USE_REAL_API) return
@@ -70,13 +71,14 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
       hydrateInFlightRef.current = true
 
       try {
-        const [agents, backendState, interventions, posts, events, logs] = await Promise.all([
+        const [agents, backendState, interventions, posts, events, logs, systemLogs] = await Promise.all([
           api.agents.getAll(),
           api.state.get(),
           api.interventions.getAll({ limit: HYDRATE_LIMITS.interventions }),
           api.feed.getAll({ limit: HYDRATE_LIMITS.feed }),
           api.events.getAll({ limit: HYDRATE_LIMITS.events }),
           api.logs.getAll({ limit: HYDRATE_LIMITS.logs }),
+          api.systemLogs.getAll({ limit: 500 }),
         ])
 
         for (const agent of agents) {
@@ -150,6 +152,15 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
             if (seenLogIdsRef.current.has(log.id)) return
             seenLogIdsRef.current.add(log.id)
             dispatch({ type: 'push_log', level: log.level, tick: log.tick, agentId: log.agentId, text: log.text })
+          })
+
+        systemLogs
+          .slice()
+          .reverse()
+          .forEach((sysLog) => {
+            if (seenSystemLogIdsRef.current.has(sysLog.id)) return
+            seenSystemLogIdsRef.current.add(sysLog.id)
+            dispatch({ type: 'push_system_log', log: sysLog })
           })
 
         hydratedRef.current = true
@@ -226,7 +237,7 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
     }, 1000)
 
     wsClient.connect()
-    wsClient.subscribe({ eventTypes: ['tick', 'post', 'event', 'log', 'state'] })
+    wsClient.subscribe({ eventTypes: ['tick', 'post', 'event', 'log', 'state', 'system_log'] })
 
     const unsubscribe = wsClient.onMessage((message) => {
       if (message.type === 'tick_update') {
@@ -255,6 +266,10 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
         if (seenLogIdsRef.current.has(message.log.id)) return
         seenLogIdsRef.current.add(message.log.id)
         dispatch({ type: 'push_log', level: message.log.level, tick: message.log.tick, agentId: message.log.agentId, text: message.log.text })
+      } else if (message.type === 'system_log') {
+        if (seenSystemLogIdsRef.current.has(message.log.id)) return
+        seenSystemLogIdsRef.current.add(message.log.id)
+        dispatch({ type: 'push_system_log', log: message.log })
       } else if (message.type === 'simulation_state') {
         dispatch({ type: 'set_tick', tick: message.state.tick })
         dispatch({ type: 'set_running', isRunning: message.state.isRunning })

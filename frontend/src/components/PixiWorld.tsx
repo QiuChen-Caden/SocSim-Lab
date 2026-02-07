@@ -2,29 +2,26 @@ import { Application, Graphics, Sprite, Texture } from 'pixi.js'
 import { Viewport } from 'pixi-viewport'
 import { useEffect, useRef } from 'react'
 import { useSim } from '../app/SimulationProvider'
-import { clamp, posAtTick, hash01 } from '../app/util'
+import { clamp, hash01, posAtTick } from '../app/util'
 
-// 将 mood 值 (-1 到 1) 映射到颜色
-// -1 = 红色 (消极), 0 = 黄色 (中性), 1 = 绿色 (积极)
 function moodToColor(mood: number): number {
   const clamped = clamp(mood, -1, 1)
 
-  // 颜色定义 - 更鲜艳、对比度更高的颜色
-  const negativeColor = { r: 255, g: 68, b: 68 }   // #ff4444 鲜红
-  const neutralColor = { r: 255, g: 204, b: 0 }      // #ffcc00 亮黄
-  const positiveColor = { r: 68, g: 255, b: 68 }    // #44ff44 鲜绿
+  const negativeColor = { r: 255, g: 68, b: 68 }
+  const neutralColor = { r: 255, g: 204, b: 0 }
+  const positiveColor = { r: 68, g: 255, b: 68 }
 
-  let r: number, g: number, b: number
+  let r: number
+  let g: number
+  let b: number
 
   if (clamped < 0) {
-    // 负值：从红色到黄色
-    const t = (clamped + 1) / 1  // 0 到 1
+    const t = clamped + 1
     r = Math.round(negativeColor.r + (neutralColor.r - negativeColor.r) * t)
     g = Math.round(negativeColor.g + (neutralColor.g - negativeColor.g) * t)
     b = Math.round(negativeColor.b + (neutralColor.b - negativeColor.b) * t)
   } else {
-    // 正值：从黄色到绿色
-    const t = clamped / 1  // 0 到 1
+    const t = clamped
     r = Math.round(neutralColor.r + (positiveColor.r - neutralColor.r) * t)
     g = Math.round(neutralColor.g + (positiveColor.g - neutralColor.g) * t)
     b = Math.round(neutralColor.b + (positiveColor.b - neutralColor.b) * t)
@@ -33,28 +30,25 @@ function moodToColor(mood: number): number {
   return (r << 16) | (g << 8) | b
 }
 
-// 计算智能体的 mood 值 - 让分布更丰富多样
 function getAgentMood(agentId: number, tick: number): number {
   const seed = 20260121
-
-  // 基础情绪：使用不同的种子获得更大差异
   const baseMood = clamp(hash01(seed + agentId * 13) * 2 - 1, -1, 1)
-
-  // 多重变化因素，让情绪更动态
-  // 1. 周期性变化（每个智能体不同频率）
   const cycle1 = Math.sin((tick + agentId * 17) / 30) * 0.4
   const cycle2 = Math.cos((tick + agentId * 23) / 50) * 0.3
-
-  // 2. 随机波动（基于 tick 和 agentId 的伪随机）
   const randomFluctuation = (hash01(tick * 7 + agentId * 11) * 2 - 1) * 0.2
-
-  // 3. 群体效应：相近 ID 的智能体情绪趋同
   const groupEffect = Math.sin((tick + Math.floor(agentId / 100) * 19) / 40) * 0.25
+  return clamp(baseMood * 0.3 + cycle1 + cycle2 + randomFluctuation + groupEffect, -1, 1)
+}
 
-  // 组合所有因素
-  const mood = baseMood * 0.3 + cycle1 + cycle2 + randomFluctuation + groupEffect
+function influenceSize(tier?: string): number {
+  if (tier === 'elite') return 1.35
+  if (tier === 'opinion_leader') return 1.15
+  return 0.95
+}
 
-  return clamp(mood, -1, 1)
+function stanceAlpha(stance?: number): number {
+  if (typeof stance !== 'number') return 0.82
+  return clamp(0.68 + Math.abs(stance) * 0.28, 0.68, 0.96)
 }
 
 type PixiWorldProps = {
@@ -69,11 +63,13 @@ export function PixiWorld({ zoomLevel, onZoomChange }: PixiWorldProps) {
   const viewportRef = useRef<Viewport | null>(null)
   const spritesRef = useRef<Array<{ id: number; sprite: Sprite }>>([])
   const binsRef = useRef<Graphics | null>(null)
+  const focusOverlayRef = useRef<Graphics | null>(null)
   const dotTextureRef = useRef<Texture | null>(null)
   const tickRef = useRef(0)
   const selectedRef = useRef<number | null>(null)
   const modeRef = useRef(sim.state.config.viewportMode)
   const worldSizeRef = useRef(sim.state.config.worldSize)
+  const agentMetaRef = useRef<Record<number, { tier?: string; stance?: number }>>({})
 
   useEffect(() => {
     tickRef.current = sim.state.tick
@@ -82,7 +78,18 @@ export function PixiWorld({ zoomLevel, onZoomChange }: PixiWorldProps) {
     worldSizeRef.current = sim.state.config.worldSize
   }, [sim.state.config.viewportMode, sim.state.config.worldSize, sim.state.selectedAgentId, sim.state.tick])
 
-  // 响应外部 zoomLevel 变化
+  useEffect(() => {
+    const meta: Record<number, { tier?: string; stance?: number }> = {}
+    for (const [idText, agent] of Object.entries(sim.state.agents)) {
+      const id = Number(idText)
+      meta[id] = {
+        tier: agent.profile.social_status.influence_tier,
+        stance: agent.state.stance,
+      }
+    }
+    agentMetaRef.current = meta
+  }, [sim.state.agents])
+
   useEffect(() => {
     const viewport = viewportRef.current
     if (viewport && zoomLevel !== undefined && zoomLevel !== externalZoomRef.current) {
@@ -102,10 +109,7 @@ export function PixiWorld({ zoomLevel, onZoomChange }: PixiWorldProps) {
 
     const safeDestroy = () => {
       try {
-        // 只在 init 之后 destroy，避免 Pixi 内部未构造完全导致的 destroy 崩溃
-        if (initialized) {
-          app.destroy({ removeView: true }, true)
-        }
+        if (initialized) app.destroy({ removeView: true }, true)
       } catch {
         // ignore
       }
@@ -113,10 +117,8 @@ export function PixiWorld({ zoomLevel, onZoomChange }: PixiWorldProps) {
 
     ;(async () => {
       try {
-        // host 已经不在 DOM（StrictMode / 切页时）则放弃初始化
         if (!host.isConnected) return
 
-        // 避免 resizeTo 在 StrictMode/初始化阶段的竞态：用显式宽高初始化 + ResizeObserver 手动 resize
         const initWidth = Math.max(1, host.clientWidth || 0)
         const initHeight = Math.max(1, host.clientHeight || 0)
 
@@ -124,9 +126,12 @@ export function PixiWorld({ zoomLevel, onZoomChange }: PixiWorldProps) {
           width: initWidth,
           height: initHeight,
           backgroundAlpha: 0,
-          antialias: false,
+          antialias: true,
+          resolution: Math.max(2, window.devicePixelRatio || 1),
+          autoDensity: true,
         })
         initialized = true
+        app.canvas.style.imageRendering = 'auto'
 
         if (cancelled || !host.isConnected) {
           safeDestroy()
@@ -150,7 +155,7 @@ export function PixiWorld({ zoomLevel, onZoomChange }: PixiWorldProps) {
         viewportRef.current = viewport
 
         viewport.drag().pinch().wheel().decelerate()
-        viewport.setZoom(3.5, true)  // 更大的缩放，让30个agent更紧凑
+        viewport.setZoom(3.5, true)
         viewport.moveCenter(worldSize / 2, worldSize / 2)
 
         if (typeof ResizeObserver !== 'undefined') {
@@ -162,21 +167,18 @@ export function PixiWorld({ zoomLevel, onZoomChange }: PixiWorldProps) {
               app.renderer.resize(w, h)
               viewport.resize(w, h, viewport.worldWidth, viewport.worldHeight)
             } catch {
-              // ignore resize errors during teardown
+              // ignore
             }
           })
           resizeObserver.observe(host)
         }
 
-        // 监听缩放变化，通知父组件
         viewport.on('zoomed', () => {
-          if (onZoomChange) {
-            externalZoomRef.current = viewport.scale.x
-            onZoomChange(viewport.scale.x)
-          }
+          if (!onZoomChange) return
+          externalZoomRef.current = viewport.scale.x
+          onZoomChange(viewport.scale.x)
         })
 
-        // 背景格网（便于观察缩放）
         const grid = new Graphics()
         const step = 200
         for (let x = 0; x <= worldSize; x += step) grid.moveTo(x, 0).lineTo(x, worldSize)
@@ -184,17 +186,19 @@ export function PixiWorld({ zoomLevel, onZoomChange }: PixiWorldProps) {
         grid.stroke({ width: 1, color: 0xffffff, alpha: 0.04 })
         viewport.addChild(grid)
 
-        // bins overlay（macro 模式）
         const bins = new Graphics()
         binsRef.current = bins
         viewport.addChild(bins)
 
+        const focusOverlay = new Graphics()
+        focusOverlayRef.current = focusOverlay
+        viewport.addChild(focusOverlay)
+
         app.stage.addChild(viewport)
 
-        // dot texture (生成一次，复用 sprite)
         const dotG = new Graphics()
-        dotG.circle(0, 0, 3.2).fill({ color: 0x7fb2ff, alpha: 0.95 })
-        dotG.circle(0, 0, 4.6).stroke({ width: 1, color: 0x0b1020, alpha: 0.55 })
+        dotG.circle(0, 0, 4.4).fill({ color: 0x9bc1ff, alpha: 1 })
+        dotG.circle(0, 0, 5.6).stroke({ width: 1.4, color: 0x07101e, alpha: 0.9 })
         const dotTexture = app.renderer.generateTexture(dotG)
         dotTextureRef.current = dotTexture
 
@@ -222,12 +226,11 @@ export function PixiWorld({ zoomLevel, onZoomChange }: PixiWorldProps) {
           selectNearest(p.x, p.y)
         })
 
-        // 初始 sprites
-        const n = sim.state.config.sampleAgents
-        for (let i = 0; i < n; i++) {
-          const agentId = i
+        const agentIds = Object.keys(sim.state.agents).map(Number)
+        for (const agentId of agentIds) {
           const s = new Sprite(dotTexture)
           s.anchor.set(0.5)
+          s.roundPixels = true
           const p = posAtTick(agentId, sim.state.tick, sim.state.config.worldSize)
           s.x = p.x
           s.y = p.y
@@ -246,28 +249,68 @@ export function PixiWorld({ zoomLevel, onZoomChange }: PixiWorldProps) {
           const mode = modeRef.current
           const worldSizeNow = worldSizeRef.current
           const selectedNow = selectedRef.current
+
           if (mode === 'micro') {
             bins.visible = false
+            focusOverlay.visible = true
+            focusOverlay.clear()
+
+            const selectedEntry =
+              selectedNow == null ? null : spritesRef.current.find((x) => x.id === selectedNow) ?? null
+            const nearest: Array<{ x: number; y: number; d2: number }> = []
+
             for (const { id, sprite } of spritesRef.current) {
               const p = posAtTick(id, tick, worldSizeNow)
               sprite.x = p.x
               sprite.y = p.y
 
-              // 根据情绪值设置颜色
               const mood = getAgentMood(id, tick)
               const isSelected = id === selectedNow
+              const meta = agentMetaRef.current[id]
+              const baseScale = influenceSize(meta?.tier)
 
-              // 选中的智能体用金色高亮，否则用情绪颜色
               sprite.tint = isSelected ? 0xffd700 : moodToColor(mood)
-              sprite.scale.set(isSelected ? 1.6 : 1)
+              sprite.alpha = isSelected ? 1 : clamp(stanceAlpha(meta?.stance) + 0.06, 0.74, 0.98)
+              sprite.scale.set(isSelected ? baseScale * 1.65 : baseScale)
+
+              if (selectedEntry && !isSelected) {
+                const dx = sprite.x - selectedEntry.sprite.x
+                const dy = sprite.y - selectedEntry.sprite.y
+                const d2 = dx * dx + dy * dy
+                if (nearest.length < 6) {
+                  nearest.push({ x: sprite.x, y: sprite.y, d2 })
+                } else {
+                  let farthest = 0
+                  for (let i = 1; i < nearest.length; i++) {
+                    if (nearest[i].d2 > nearest[farthest].d2) farthest = i
+                  }
+                  if (d2 < nearest[farthest].d2) nearest[farthest] = { x: sprite.x, y: sprite.y, d2 }
+                }
+              }
+            }
+
+            if (selectedEntry) {
+              const cx = selectedEntry.sprite.x
+              const cy = selectedEntry.sprite.y
+              const pulse = 9 + Math.sin(tick / 6) * 1.8
+
+              for (const n of nearest) {
+                const opacity = clamp(0.26 + (1 - Math.sqrt(n.d2) / 420) * 0.4, 0.16, 0.6)
+                focusOverlay.moveTo(cx, cy).lineTo(n.x, n.y)
+                focusOverlay.stroke({ width: 1, color: 0xffffff, alpha: opacity })
+              }
+
+              focusOverlay.circle(cx, cy, pulse).stroke({ width: 2, color: 0xffd700, alpha: 0.72 })
+              focusOverlay.circle(cx, cy, pulse + 6).stroke({ width: 1, color: 0xffd700, alpha: 0.34 })
             }
           } else {
             bins.visible = true
+            focusOverlay.visible = false
+            focusOverlay.clear()
             bins.clear()
+
             const gridSize = 60
             const cell = worldSizeNow / gridSize
-
-            // 计算每个格子的平均情绪
             const moodSums = new Array(gridSize * gridSize).fill(0)
             const counts = new Array(gridSize * gridSize).fill(0)
 
@@ -286,8 +329,6 @@ export function PixiWorld({ zoomLevel, onZoomChange }: PixiWorldProps) {
                 const idx = gy * gridSize + gx
                 const c = counts[idx]
                 if (c === 0) continue
-
-                // 使用平均情绪值作为颜色
                 const avgMood = moodSums[idx] / c
                 const a = 0.02 + (c / max) * 0.18
                 bins.rect(gx * cell, gy * cell, cell, cell).fill({ color: moodToColor(avgMood), alpha: a })
@@ -297,7 +338,6 @@ export function PixiWorld({ zoomLevel, onZoomChange }: PixiWorldProps) {
           }
         })
       } catch {
-        // init failed or was cancelled
         if (initialized) safeDestroy()
       }
     })()
@@ -306,6 +346,7 @@ export function PixiWorld({ zoomLevel, onZoomChange }: PixiWorldProps) {
       cancelled = true
       viewportRef.current = null
       binsRef.current = null
+      focusOverlayRef.current = null
       dotTextureRef.current = null
       spritesRef.current = []
       try {
@@ -318,14 +359,15 @@ export function PixiWorld({ zoomLevel, onZoomChange }: PixiWorldProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // 响应 sampleAgents 变化：重建采样 sprite
   useEffect(() => {
     const viewport = viewportRef.current
     if (!viewport) return
     const dotTexture = dotTextureRef.current
     if (!dotTexture) return
+
+    const agentIds = Object.keys(sim.state.agents).map(Number)
     const existing = spritesRef.current.length
-    if (existing === sim.state.config.sampleAgents) return
+    if (existing === agentIds.length) return
 
     for (const { sprite } of spritesRef.current) {
       viewport.removeChild(sprite)
@@ -333,11 +375,10 @@ export function PixiWorld({ zoomLevel, onZoomChange }: PixiWorldProps) {
     }
     spritesRef.current = []
 
-    const n = sim.state.config.sampleAgents
-    for (let i = 0; i < n; i++) {
-      const agentId = i
+    for (const agentId of agentIds) {
       const s = new Sprite(dotTexture)
       s.anchor.set(0.5)
+      s.roundPixels = true
       const p = posAtTick(agentId, sim.state.tick, sim.state.config.worldSize)
       s.x = p.x
       s.y = p.y
@@ -345,9 +386,8 @@ export function PixiWorld({ zoomLevel, onZoomChange }: PixiWorldProps) {
       viewport.addChild(s)
       spritesRef.current.push({ id: agentId, sprite: s })
     }
-  }, [sim.state.config.sampleAgents, sim.state.config.worldSize, sim.state.tick])
+  }, [sim.state.agents, sim.state.config.worldSize, sim.state.tick])
 
-  // worldSize 改变：调整 viewport world bounds
   useEffect(() => {
     const v = viewportRef.current
     if (!v) return

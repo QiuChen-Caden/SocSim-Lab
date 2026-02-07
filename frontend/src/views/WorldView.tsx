@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSim } from '../app/SimulationProvider'
 import { buildEgoAgentGraph, buildSampleAgentGraph } from '../app/agentGraph'
+import api from '../app/api'
 import { clamp } from '../app/util'
 import { AgentGraphCanvas } from '../components/AgentGraph'
 import { ErrorBoundary } from '../components/ErrorBoundary'
@@ -13,10 +14,37 @@ export function WorldView() {
   const [search, setSearch] = useState(selected?.toString() ?? '42')
   const [pixiKey, setPixiKey] = useState(0)
   const [zoomLevel, setZoomLevel] = useState(0.35)
-  const [graphOpen, setGraphOpen] = useState(false)
+  const [graphOpen, setGraphOpen] = useState(true)
   const [graphMode, setGraphMode] = useState<'ego' | 'sample'>('ego')
+  const [realRelationEdges, setRealRelationEdges] = useState<Array<{
+    source: number
+    target: number
+    kind: 'follow' | 'group' | 'message'
+    strength: number
+  }>>([])
 
   const alerts = useMemo(() => sim.state.events.filter((e) => e.type === 'alert').slice(-3).reverse(), [sim.state.events])
+
+  useEffect(() => {
+    let cancelled = false
+    const loadNetwork = async () => {
+      try {
+        const res = await api.visualization.getNetwork({ limit: 5000 })
+        if (cancelled) return
+        if (Array.isArray(res.edges) && res.edges.length > 0) {
+          setRealRelationEdges(res.edges)
+        }
+      } catch {
+        // keep fallback graph behavior
+      }
+    }
+    loadNetwork()
+    const timer = window.setInterval(loadNetwork, 15000)
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+    }
+  }, [])
 
   const groupProfile = useMemo(() => {
     if (!agent) return null
@@ -28,11 +56,26 @@ export function WorldView() {
     const sampleAgents = sim.state.config.sampleAgents
     const seed = sim.state.config.seed
     const focusId = selected ?? 42
+    const validAgentIds = Object.keys(sim.state.agents).map(Number)
 
     return graphMode === 'ego'
-      ? buildEgoAgentGraph({ seed, focusId, sampleAgents, maxNodes })
-      : buildSampleAgentGraph({ seed, sampleAgents, maxNodes, ensureId: focusId })
-  }, [graphMode, selected, sim.state.config.sampleAgents, sim.state.config.seed])
+      ? buildEgoAgentGraph({ seed, focusId, sampleAgents, maxNodes, relationEdges: realRelationEdges, validAgentIds })
+      : buildSampleAgentGraph({ seed, sampleAgents, maxNodes, ensureId: focusId, relationEdges: realRelationEdges, validAgentIds })
+  }, [graphMode, selected, sim.state.agents, sim.state.config.sampleAgents, sim.state.config.seed, realRelationEdges])
+
+  const graphNodeMeta = useMemo(() => {
+    const out: Record<number, { influenceTier?: string; mood?: number; stance?: number }> = {}
+    for (const node of agentGraph.nodes) {
+      const a = sim.state.agents[node.id]
+      if (!a) continue
+      out[node.id] = {
+        influenceTier: a.profile.social_status.influence_tier,
+        mood: a.state.mood,
+        stance: a.state.stance,
+      }
+    }
+    return out
+  }, [agentGraph.nodes, sim.state.agents])
 
   return (
     <div className="split">
@@ -74,6 +117,7 @@ export function WorldView() {
               <AgentGraphCanvas
                 graph={agentGraph}
                 focusId={selected ?? 42}
+                nodeMetaById={graphNodeMeta}
                 onSelectAgent={(id) => sim.actions.selectAgent(id)}
               />
               <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>

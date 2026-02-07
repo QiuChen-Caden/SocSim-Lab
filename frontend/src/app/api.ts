@@ -1,13 +1,13 @@
 /**
- * API Client for OASIS Frontend Backend
+ * OASIS 前端后端 API 客户端
  *
- * Provides a typed interface to the backend API service.
+ * 为后端 API 服务提供类型化接口
  */
 
 // 在开发环境使用空字符串（通过 Vite 代理），生产环境使用完整 URL
 const API_BASE_URL = import.meta.env.VITE_API_URL || "";
 
-// ============= Types =============
+// ============= 类型定义 =============
 
 export type ViewportMode = 'micro' | 'macro';
 export type LogLevel = 'info' | 'ok' | 'error';
@@ -96,6 +96,14 @@ export type LogLine = {
   text: string;
 };
 
+export type SystemLog = {
+  id: string;
+  timestamp: number;
+  level: 'info' | 'ok' | 'error' | 'warn';
+  message: string;
+  category: string;
+};
+
 export type SimulationConfig = {
   seed: number;
   agentCount: number;
@@ -154,14 +162,14 @@ export type Bookmark = {
   createdAt: number;
 };
 
-// ============= API Client =============
+// ============= API 客户端 =============
 
 class ApiError extends Error {
   status: number;
   detail: string;
 
   constructor(status: number, detail: string) {
-    super(`API Error ${status}: ${detail}`);
+    super(`API 错误 ${status}: ${detail}`);
     this.name = 'ApiError';
     this.status = status;
     this.detail = detail;
@@ -188,18 +196,18 @@ async function request<T>(
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-    throw new ApiError(response.status, error.error || error.detail || 'Request failed');
+    const error = await response.json().catch(() => ({ error: '未知错误' }));
+    throw new ApiError(response.status, error.error || error.detail || '请求失败');
   }
 
   return response.json();
 }
 
-// ============= Agents API =============
+// ============= 智能体 API =============
 
 export const agentsApi = {
   /**
-   * Get all agents or filter by IDs
+   * 获取所有智能体或按 ID 过滤
    */
   async getAll(options?: {
     ids?: number[];
@@ -222,14 +230,14 @@ export const agentsApi = {
   },
 
   /**
-   * Get a single agent by ID
+   * 根据 ID 获取单个智能体
    */
   async getById(id: number): Promise<AgentProfile> {
     return request<AgentProfile>(`/api/agents/${id}`);
   },
 
   /**
-   * Get multiple agents by IDs
+   * 根据多个 ID 获取智能体
    */
   async getByIds(ids: number[]): Promise<AgentProfile[]> {
     if (ids.length === 0) return [];
@@ -237,14 +245,14 @@ export const agentsApi = {
   },
 
   /**
-   * Get agent state
+   * 获取智能体状态
    */
   async getState(id: number): Promise<AgentState> {
     return request<AgentState>(`/api/agents/${id}/state`);
   },
 
   /**
-   * Update agent state
+   * 更新智能体状态
    */
   async patchState(
     id: number,
@@ -257,11 +265,11 @@ export const agentsApi = {
   },
 };
 
-// ============= Feed API =============
+// ============= 信息流 API =============
 
 export const feedApi = {
   /**
-   * Get feed posts
+   * 获取信息流帖子
    */
   async getAll(options?: {
     limit?: number;
@@ -284,7 +292,7 @@ export const feedApi = {
   },
 
   /**
-   * Create a new post
+   * 创建新帖子
    */
   async create(data: {
     agentId: number;
@@ -298,18 +306,18 @@ export const feedApi = {
   },
 };
 
-// ============= State API =============
+// ============= 状态 API =============
 
 export const stateApi = {
   /**
-   * Get simulation state
+   * 获取模拟状态
    */
   async get(): Promise<SimulationState> {
     return request<SimulationState>('/api/state');
   },
 
   /**
-   * Update simulation state
+   * 更新模拟状态
    */
   async patch(updates: {
     isRunning?: boolean;
@@ -325,11 +333,11 @@ export const stateApi = {
   },
 };
 
-// ============= Simulation Control API =============
+// ============= 模拟控制 API =============
 
 export const simulationApi = {
   /**
-   * Start simulation
+   * 开始模拟
    */
   async start(speed?: number): Promise<void> {
     await request('/api/simulation/start', {
@@ -339,28 +347,28 @@ export const simulationApi = {
   },
 
   /**
-   * Stop simulation
+   * 停止模拟
    */
   async stop(): Promise<void> {
     await request('/api/simulation/stop', { method: 'POST' });
   },
 
   /**
-   * Pause simulation
+   * 暂停模拟
    */
   async pause(): Promise<void> {
     await request('/api/simulation/pause', { method: 'POST' });
   },
 
   /**
-   * Resume simulation
+   * 继续模拟
    */
   async resume(): Promise<void> {
     await request('/api/simulation/resume', { method: 'POST' });
   },
 
   /**
-   * Set simulation speed
+   * 设置模拟速度
    */
   async setSpeed(speed: number): Promise<void> {
     await request('/api/simulation/speed', {
@@ -370,7 +378,7 @@ export const simulationApi = {
   },
 
   /**
-   * Set current tick
+   * 设置当前时间步
    */
   async setTick(tick: number): Promise<void> {
     await request('/api/simulation/tick', {
@@ -380,18 +388,18 @@ export const simulationApi = {
   },
 
   /**
-   * Get runtime simulation metrics (resilience/observability).
+   * 获取运行时模拟指标（弹性/可观测性）
    */
   async getMetrics(): Promise<Record<string, unknown>> {
     return request<Record<string, unknown>>('/api/simulation/metrics');
   },
 };
 
-// ============= Events API =============
+// ============= 事件 API =============
 
 export const eventsApi = {
   /**
-   * Get timeline events
+   * 获取时间线事件
    */
   async getAll(options?: {
     limit?: number;
@@ -410,7 +418,7 @@ export const eventsApi = {
   },
 
   /**
-   * Create a timeline event
+   * 创建时间线事件
    */
   async create(data: {
     tick: number;
@@ -426,11 +434,11 @@ export const eventsApi = {
   },
 };
 
-// ============= Logs API =============
+// ============= 日志 API =============
 
 export const logsApi = {
   /**
-   * Get simulation logs
+   * 获取模拟日志
    */
   async getAll(options?: {
     limit?: number;
@@ -453,7 +461,7 @@ export const logsApi = {
   },
 
   /**
-   * Create a log entry
+   * 创建日志条目
    */
   async create(data: {
     tick: number;
@@ -468,18 +476,41 @@ export const logsApi = {
   },
 };
 
-// ============= Snapshots API =============
+// ============= 系统日志 API =============
+
+export const systemLogsApi = {
+  /**
+   * 获取系统日志（后端调试日志）
+   */
+  async getAll(options?: {
+    limit?: number;
+    level?: 'info' | 'ok' | 'error' | 'warn';
+  }): Promise<SystemLog[]> {
+    const params = new URLSearchParams();
+    if (options?.limit) {
+      params.append('limit', options.limit.toString());
+    }
+    if (options?.level) {
+      params.append('level', options.level);
+    }
+
+    const query = params.toString();
+    return request<SystemLog[]>(`/api/system-logs${query ? `?${query}` : ''}`);
+  },
+};
+
+// ============= 快照 API =============
 
 export const snapshotsApi = {
   /**
-   * Get all snapshots
+   * 获取所有快照
    */
   async getAll(): Promise<SimulationSnapshot[]> {
     return request<SimulationSnapshot[]>('/api/snapshots');
   },
 
   /**
-   * Create a snapshot
+   * 创建快照
    */
   async create(name: string): Promise<SimulationSnapshot> {
     return request<SimulationSnapshot>('/api/snapshots', {
@@ -489,7 +520,7 @@ export const snapshotsApi = {
   },
 
   /**
-   * Get a snapshot by ID
+   * 根据 ID 获取快照
    */
   async getById(id: string): Promise<SimulationSnapshot & { data: SimulationState }> {
     return request<{ id: string; name: string; experimentName: string; createdAt: number; runNumber: number; finalTick: number; data: SimulationState }>(
@@ -498,32 +529,32 @@ export const snapshotsApi = {
   },
 
   /**
-   * Load a snapshot
+   * 加载快照
    */
   async load(id: string): Promise<void> {
     await request(`/api/snapshots/${id}/load`, { method: 'POST' });
   },
 
   /**
-   * Delete a snapshot
+   * 删除快照
    */
   async delete(id: string): Promise<void> {
     await request(`/api/snapshots/${id}`, { method: 'DELETE' });
   },
 };
 
-// ============= Bookmarks API =============
+// ============= 书签 API =============
 
 export const bookmarksApi = {
   /**
-   * Get all bookmarks
+   * 获取所有书签
    */
   async getAll(): Promise<Bookmark[]> {
     return request<Bookmark[]>('/api/bookmarks');
   },
 
   /**
-   * Create a bookmark
+   * 创建书签
    */
   async create(data: { tick: number; note?: string }): Promise<Bookmark> {
     return request<Bookmark>('/api/bookmarks', {
@@ -533,18 +564,18 @@ export const bookmarksApi = {
   },
 
   /**
-   * Delete a bookmark
+   * 删除书签
    */
   async delete(id: string): Promise<void> {
     await request(`/api/bookmarks/${id}`, { method: 'DELETE' });
   },
 };
 
-// ============= Interventions API =============
+// ============= 干预 API =============
 
 export const interventionsApi = {
   /**
-   * Get intervention history
+   * 获取干预历史
    */
   async getAll(options?: {
     limit?: number;
@@ -563,7 +594,7 @@ export const interventionsApi = {
   },
 
   /**
-   * Create an intervention
+   * 创建干预
    */
   async create(data: {
     tick: number;
@@ -577,11 +608,11 @@ export const interventionsApi = {
   },
 };
 
-// ============= Visualization API =============
+// ============= 可视化 API =============
 
 export const visualizationApi = {
   /**
-   * Get 2D layout positions for agents
+   * 获取智能体的 2D 布局位置
    */
   async getLayout(algorithm: 'force_directed' | 'circular' | 'grid' = 'force_directed'): Promise<{
     positions: Record<number, { x: number; y: number }>;
@@ -589,9 +620,23 @@ export const visualizationApi = {
   }> {
     return request(`/api/visualization/layout?algorithm=${algorithm}`);
   },
+
+  /**
+   * 从后端运行时数据库获取实际网络边
+   */
+  async getNetwork(options?: { limit?: number }): Promise<{
+    edges: Array<{ source: number; target: number; kind: 'follow' | 'group' | 'message'; strength: number }>;
+    source: string;
+    error?: string;
+  }> {
+    const params = new URLSearchParams();
+    if (options?.limit) params.set('limit', String(options.limit));
+    const query = params.toString();
+    return request(`/api/visualization/network${query ? `?${query}` : ''}`);
+  },
 };
 
-// ============= Combined API export =============
+// ============= 组合 API 导出 =============
 
 export const api = {
   agents: agentsApi,
@@ -600,13 +645,14 @@ export const api = {
   simulation: simulationApi,
   events: eventsApi,
   logs: logsApi,
+  systemLogs: systemLogsApi,
   snapshots: snapshotsApi,
   bookmarks: bookmarksApi,
   interventions: interventionsApi,
   visualization: visualizationApi,
 };
 
-// ============= WebSocket Client =============
+// ============= WebSocket 客户端 =============
 
 export type WebSocketMessage =
   | { type: 'connected'; clientId: string; timestamp: string }
@@ -615,6 +661,7 @@ export type WebSocketMessage =
   | { type: 'post_created'; post: FeedPost; timestamp: string }
   | { type: 'event_created'; event: TimelineEvent; timestamp: string }
   | { type: 'log_added'; log: LogLine; timestamp: string }
+  | { type: 'system_log'; log: SystemLog; timestamp: string }
   | { type: 'simulation_state'; state: SimulationState; timestamp: string }
   | { type: 'error'; error: string; details?: Record<string, unknown>; timestamp: string }
   | { type: 'pong'; timestamp: string };
@@ -640,10 +687,10 @@ export class WebSocketClient {
     this.ws = new WebSocket(wsUrl);
 
     this.ws.onopen = () => {
-      console.log('[WebSocket] Connected');
+      console.log('[WebSocket] 已连接');
       this.reconnectDelay = 1000;
 
-      // Send queued messages
+      // 发送排队的消息
       while (this.messageQueue.length > 0) {
         const msg = this.messageQueue.shift();
         if (msg) {
@@ -660,21 +707,21 @@ export class WebSocketClient {
           this.clientId = message.clientId;
         }
 
-        // Notify all listeners
+        // 通知所有监听器
         this.listeners.forEach((listener) => {
           try {
             listener(message);
           } catch (error) {
-            console.error('[WebSocket] Listener error:', error);
+            console.error('[WebSocket] 监听器错误:', error);
           }
         });
       } catch (error) {
-        console.error('[WebSocket] Failed to parse message:', error);
+        console.error('[WebSocket] 解析消息失败:', error);
       }
     };
 
     this.ws.onclose = () => {
-      console.log('[WebSocket] Disconnected');
+      console.log('[WebSocket] 已断开');
       this.ws = null;
 
       if (!this.isIntentionalClose) {
@@ -683,7 +730,7 @@ export class WebSocketClient {
     };
 
     this.ws.onerror = (error) => {
-      console.error('[WebSocket] Error:', error);
+      console.error('[WebSocket] 错误:', error);
     };
   }
 
@@ -695,7 +742,7 @@ export class WebSocketClient {
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       this.reconnectDelay = Math.min(this.reconnectDelay * 2, this.maxReconnectDelay);
-      console.log(`[WebSocket] Reconnecting in ${this.reconnectDelay}ms...`);
+      console.log(`[WebSocket] ${this.reconnectDelay}ms 后重连...`);
       this.connect();
     }, this.reconnectDelay);
   }
@@ -715,9 +762,9 @@ export class WebSocketClient {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(message));
     } else {
-      // Queue message for when connection is established
+      // 将消息排队等待连接建立
       this.messageQueue.push(message as WebSocketMessage);
-      // Trigger connection if not connecting
+      // 如果未连接则触发连接
       if (!this.ws) {
         this.connect();
       }
@@ -764,7 +811,7 @@ export class WebSocketClient {
   }
 }
 
-// Global WebSocket client instance
+// 全局 WebSocket 客户端实例
 export const wsClient = new WebSocketClient();
 
 export default api;

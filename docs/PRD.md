@@ -1,9 +1,9 @@
 # SocSim Lab - 产品需求文档 (PRD)
 
-> **文档版本**: v3.1
+> **文档版本**: v3.2
 > **创建日期**: 2025-01-30
-> **更新日期**: 2026-02-06
-> **产品状态**: 功能完整 / 生产就绪
+> **更新日期**: 2026-02-07
+> **产品状态**: 生产就绪
 > **相关文档**: [UI Inventory](./ui-inventory.md) | [LLM Integration](./LLM-Integration.md)
 
 ---
@@ -14,14 +14,15 @@
 
 SocSim Lab 是一个**社交模拟可视化平台**，采用前后端分离架构，旨在帮助研究人员、数据科学家和策略制定者通过多智能体模拟（Agent-Based Modeling）来研究社会动态、舆情传播和群体行为。
 
-**项目现状** (v3.1):
+**项目现状** (v3.2):
 - 前端 UI 完整度: **100%**（4个核心页面全部实现）
 - 后端 API 完整度: **100%**（FastAPI + SQLite + WebSocket）
 - OASIS 集成: **100%**（社交模拟框架完整集成）
 - LLM 智能体: **100%**（支持 OpenAI/DeepSeek/vLLM/Stub）
 - 数据来源: 30个真实 Twitter personas（已导入数据库）
-- 生产就绪度: **生产可用**
+- 生产就绪度: **生产就绪**
 - 技术栈: React 19 + FastAPI + OASIS + CAMEL + PixiJS 8.x + ECharts
+- 数据持久化: SQLite 嵌入式数据库，支持跨电脑部署
 
 ### 1.2 目标
 
@@ -128,7 +129,7 @@ SocSim Lab 是一个**社交模拟可视化平台**，采用前后端分离架�
 | 6 | 查看智能体的心理测量数据（大五人格、道德基础） | `Psychometrics` panel | [组件结构 - Psychometrics](./ui-inventory.md#L273-328) |
 | 7 | 切换到 Feed 页面，查看智能体发布的帖子 | 导航栏 → `FeedView` | [2.4 FeedView 页面](./ui-inventory.md#24-feedview-页面---信息流) |
 | 8 | 查看情绪分布和极化指数 | `Metrics Dashboard` | [组件结构 - Metrics Dashboard](./ui-inventory.md#L200-387) |
-| 9 | 返回世界视图，添加书签 | 导航栏 → `ReplayView` → 添加书签 | [2.5 ReplayView 页面](./ui-inventory.md#25-replayview-页面---回放) |
+| 9 | 返回世界视图，添加书签 | 导航栏 → `ReplayView` → 添加书签 | [2.5 ReplayView 页面](./ui-inventory.md#25-replayview-页面---系统日志) |
 | 10 | 在时间轴上跳转到书签位置 | `Timeline` 控制 | [组件结构 - Timeline](./ui-inventory.md#L86-127) |
 
 **验收标准**:
@@ -151,7 +152,7 @@ SocSim Lab 是一个**社交模拟可视化平台**，采用前后端分离架�
 | 4 | 启动模拟，观察实时结果 | `Live Feed` + `Agent Monitor` | [组件结构 - Live Feed](./ui-inventory.md#live-feed) |
 | 5 | 在关键时刻创建实验快照 | `World Controls` → 保存快照 | [Actions - create_snapshot](./ui-inventory.md#actions) |
 | 6 | 修改参数，重新运行模拟 | `Design Phase` → 重置 → 运行 | [组件结构 - Design Phase](./ui-inventory.md#design-phase) |
-| 7 | 进入回放页面，对比两次实验结果 | `ReplayView` → 切换快照 | [组件结构 - Simulation Records](./ui-inventory.md#simulation-records) |
+| 7 | 进入系统日志页面，对比两次实验结果 | `ReplayView` → 切换快照 | [组件结构 - Simulation Records](./ui-inventory.md#simulation-records) |
 | 8 | 查看指标图表，导出数据 | `Metrics Phase` → ECharts | [组件结构 - Metrics Phase](./ui-inventory.md#metrics-phase) |
 
 **验收标准**:
@@ -194,7 +195,7 @@ SocSim Lab 是一个**社交模拟可视化平台**，采用前后端分离架�
 | **M-2** | **智能体检查器** | 1. 点击智能体显示完整画像<br>2. 支持按 ID 搜索<br>3. 支持上下导航相邻智能体 | `WorldView` / `Agent Inspector` | [Agent Inspector 组件](./ui-inventory.md#agent-inspector) |
 | **M-3** | **时间轴控制** | 1. 播放/暂停功能正常<br>2. 时间滑块可拖动跳转<br>3. 显示当前 tick 和速度 | `WorldView` / `Timeline` | [Timeline 组件](./ui-inventory.md#timeline-时间轴) |
 | **M-4** | **信息流展示** | 1. 按时间倒序显示帖子<br>2. 支持排序（最新/最热/争议）<br>3. 显示帖子元数据（作者/情绪/点赞） | `FeedView` | [FeedView 页面](./ui-inventory.md#24-feedview-页面---信息流) |
-| **M-5** | **回放功能** | 1. 支持时间轴跳转<br>2. 支持书签添加/跳转/删除<br>3. 支持播放速度调整 | `ReplayView` | [ReplayView 页面](./ui-inventory.md#25-replayview-页面---回放) |
+| **M-5** | **系统日志功能** | 1. 支持时间轴跳转<br>2. 支持书签添加/跳转/删除<br>3. 支持播放速度调整 | `ReplayView` | [ReplayView 页面](./ui-inventory.md#25-replayview-页面---系统日志) |
 | **M-6** | **错误边界处理** | 1. 渲染错误时显示友好提示<br>2. 提供重试机制<br>3. 不影响其他页面功能 | `ErrorBoundary` | [ErrorBoundary 组件](./ui-inventory.md#error-boundary-组件) |
 | **M-7** | **主题切换** | 1. 支持深色/浅色主题切换<br>2. 切换后所有组件样式正确 | `Shell` / `ThemeToggleButton` | [主题切换](./ui-inventory.md#theme-toggle-button) |
 | **M-8** | **导航功能** | 1. 4 个页面可正常切换<br>2. 切换后状态保持<br>3. 当前页面高亮显示 | `Shell` / Navigation | [路由配置](./ui-inventory.md#路由配置) |
@@ -455,7 +456,7 @@ type LLMProvider = 'openai' | 'deepseek' | 'vllm' | 'stub'
 |---------|---------|------|------|
 | `simulation_start` | 用户点击播放按钮 | `{ tick: number, agentCount: number }` | 模拟使用率 |
 | `agent_selected` | 用户选择智能体 | `{ agentId: number, source: 'canvas' | 'search' | 'nav' }` | 检查器使用率 |
-| `bookmark_added` | 用户添加书签 | `{ tick: number, note: string }` | 回放功能使用率 |
+| `bookmark_added` | 用户添加书签 | `{ tick: number, note: string }` | 系统日志功能使用率 |
 | `snapshot_created` | 用户创建快照 | `{ name: string, tick: number }` | 实验记录使用率 |
 | `scenario_configured` | 用户配置场景 | `{ tab: string, params: object }` | 工作台配置率 |
 | `feed_sorted` | 用户切换排序方式 | `{ mode: 'time' | 'emotion' | 'likes' }` | 信息流交互率 |
@@ -475,7 +476,7 @@ type LLMProvider = 'openai' | 'deepseek' | 'vllm' | 'stub'
 |   - 模拟播放 | 触发 simulation_start 的用户占比 | > 80% |
 |   - 智能体检查 | 触发 agent_selected 的用户占比 | > 60% |
 |   - 信息流浏览 | 访问 Feed 页面的用户占比 | > 50% |
-|   - 回放功能 | 访问 Replay 页面的用户占比 | > 30% |
+|   - 系统日志功能 | 访问 Replay 页面的用户占比 | > 30% |
 |   - 工作台配置 | 触发 scenario_configured 的用户占比 | > 20% |
 
 ### 6.4 性能指标 (Performance)
@@ -505,7 +506,7 @@ type LLMProvider = 'openai' | 'deepseek' | 'vllm' | 'stub'
 - [x] 基础框架搭建 + 世界视图基础渲染
 - [x] 智能体检查器 + 时间轴控制
 - [x] 信息流页面 + 基础指标
-- [x] 回放功能 + 导航完善
+- [x] 系统日志功能 + 导航完善
 - [x] Twitter Personas 数据集成
 
 **验收标准**: 全部达成 ✅
@@ -527,6 +528,23 @@ type LLMProvider = 'openai' | 'deepseek' | 'vllm' | 'stub'
 - [x] 数据加载状态 + 操作反馈
 - [x] 表单验证完善
 - [x] **后端 API 完整集成** (FastAPI + SQLite + WebSocket)
+
+**验收标准**: 全部达成 ✅
+
+---
+
+#### V2 (Version 3.2) ✅ 已完成
+
+**目标**: 数据持久化完善，跨电脑部署支持
+
+**完成时间**: 2026-02-07
+
+**交付内容**:
+- [x] SQLite 嵌入式数据库完善
+- [x] 数据库文件可配置路径
+- [x] 跨电脑数据迁移支持
+- [x] 一键启动脚本优化
+- [x] 文档更新完善
 
 **验收标准**: 全部达成 ✅
 

@@ -30,11 +30,14 @@ export type Action =
   | { type: 'load_snapshot'; snapshotId: string }
   | { type: 'delete_snapshot'; snapshotId: string }
   | { type: 'clear_snapshots' }
+  | { type: 'push_system_log'; log: SimulationState['systemLogs'][number] }
+  | { type: 'set_system_logs'; logs: SimulationState['systemLogs'] }
 
 const MAX_LOGS = 4000
 const MAX_EVENTS = 2500
 const MAX_FEED = 2000
 const MAX_INTERVENTIONS = 120
+const MAX_SYSTEM_LOGS = 500
 
 function makeEvidence(agentId: number, tick: number) {
   const mem = Array.from({ length: 4 }).map((_, i) => {
@@ -98,11 +101,11 @@ export function initialState(): SimulationState {
         '场景：基于真实 Twitter 用户画像的社交模拟。使用 30 个真实提取的 Twitter personas（包含身份、心理测量、行为特征等）。智能体会在空间中移动，并在 Feed 中发布/互动。你可以暂停并注入事件或修改智能体状态。',
       experimentName: 'Twitter Personas Simulation',
       designReady: false,
-      llmEnabled: true,
+      llmEnabled: false,
       llmProvider: 'deepseek',
       llmModel: 'deepseek-chat',
       llmBaseUrl: 'https://api.deepseek.com/v1',
-      llmApiKey: 'sk-5c79877413f346ceb7d4fdbf6daed4e6',
+      llmApiKey: '',
       llmTemperature: 0.7,
       llmMaxTokens: 512,
       llmTopP: 1,
@@ -194,6 +197,7 @@ export function initialState(): SimulationState {
     interventions: [],
     snapshots: [],
     currentSnapshotId: null,
+    systemLogs: [],
   }
 }
 
@@ -438,6 +442,13 @@ export function reducer(state: SimulationState, action: Action): SimulationState
     }
     case 'clear_snapshots': {
       return { ...state, snapshots: [], currentSnapshotId: null }
+    }
+    case 'push_system_log': {
+      const next = [...state.systemLogs, action.log]
+      return { ...state, systemLogs: next.slice(Math.max(0, next.length - MAX_SYSTEM_LOGS)) }
+    }
+    case 'set_system_logs': {
+      return { ...state, systemLogs: action.logs }
     }
     default:
       return state

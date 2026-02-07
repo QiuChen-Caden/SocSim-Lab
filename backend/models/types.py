@@ -1,6 +1,6 @@
 """
-Extended data types for OASIS frontend integration.
-These types match the frontend TypeScript types in src/app/types.ts
+用于 OASIS 前端集成的扩展数据类型。
+这些类型与 src/app/types.ts 中的前端 TypeScript 类型匹配
 """
 from dataclasses import dataclass, field
 from typing import Any, Literal
@@ -525,11 +525,11 @@ class SimulationConfig:
     scenario_text: str = ""
     experiment_name: str = "experiment_1"
     design_ready: bool = False
-    llm_enabled: bool = True
+    llm_enabled: bool = False
     llm_provider: str = "deepseek"
     llm_model: str = "deepseek-chat"
     llm_base_url: str = "https://api.deepseek.com/v1"
-    llm_api_key: str = "sk-5c79877413f346ceb7d4fdbf6daed4e6"
+    llm_api_key: str = ""
     llm_temperature: float = 0.7
     llm_max_tokens: int = 512
     llm_top_p: float = 1.0
@@ -579,11 +579,11 @@ class SimulationConfig:
             scenario_text=data.get("scenarioText", data.get("scenario_text", "")),
             experiment_name=data.get("experimentName", data.get("experiment_name", "experiment_1")),
             design_ready=data.get("designReady", data.get("design_ready", False)),
-            llm_enabled=data.get("llmEnabled", data.get("llm_enabled", True)),
+            llm_enabled=data.get("llmEnabled", data.get("llm_enabled", False)),
             llm_provider=data.get("llmProvider", data.get("llm_provider", "deepseek")),
             llm_model=data.get("llmModel", data.get("llm_model", "deepseek-chat")),
             llm_base_url=data.get("llmBaseUrl", data.get("llm_base_url", "https://api.deepseek.com/v1")),
-            llm_api_key=data.get("llmApiKey", data.get("llm_api_key", "sk-5c79877413f346ceb7d4fdbf6daed4e6")),
+            llm_api_key=data.get("llmApiKey", data.get("llm_api_key", "")),
             llm_temperature=float(data.get("llmTemperature", data.get("llm_temperature", 0.7))),
             llm_max_tokens=int(data.get("llmMaxTokens", data.get("llm_max_tokens", 512))),
             llm_top_p=float(data.get("llmTopP", data.get("llm_top_p", 1.0))),

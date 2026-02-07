@@ -1,8 +1,8 @@
 # UI 清单文档 - SocSim Lab
 
-> **版本**: v3.0
-> **更新时间**: 2026-02-06
-> **项目状态**: 功能完整 / 生产就绪
+> **版本**: v3.2
+> **更新时间**: 2026-02-07
+> **项目状态**: 生产就绪
 > **代码库**: `C:\Users\Lenovo\Desktop\SocSim-Lab`
 
 ---
@@ -25,7 +25,7 @@
 | `/` (默认) | World View 世界视图 | 智能体世界可视化、时间轴控制、智能体检查器 | 顶部导航栏 "World 世界视图" | `src/views/WorldView.tsx` |
 | `/workbench` | Workbench 工作台 | 模拟实验设计、基准测试、场景配置 | 顶部导航栏 "Workbench 工作台" | `src/views/WorkbenchView.tsx` |
 | `/feed` | Feed 信息流 | 社交媒体流、情绪分析、参与度统计 | 顶部导航栏 "Feed 信息流" | `src/views/FeedView.tsx` |
-| `/replay` | Replay 回放 | 时间轴回放、实验记录、书签管理 | 顶部导航栏 "Replay 回放" | `src/views/ReplayView.tsx` |
+| `/replay` | System Log 系统日志 | 系统日志查看、时间轴回放、实验记录、书签管理 | 顶部导航栏 "System Log 系统日志" | `src/views/ReplayView.tsx` |
 
 ### 1.3 路由代码片段
 
@@ -284,16 +284,16 @@ FeedView (className="feed split")
 
 ---
 
-### 2.5 ReplayView 页面 - 回放
+### 2.5 ReplayView 页面 - 系统日志
 
 **文件位置**: `src/views/ReplayView.tsx`
 
 ```
 ReplayView (className="replay split")
 │
-├── section.panel (左侧 - 回放控制)
+├── section.panel (左侧 - 系统日志控制)
 │   ├── panel__hd
-│   │   ├── h2 (标题: "Replay 回放")
+│   │   ├── h2 (标题: "System Log 系统日志")
 │   │   └── span.pill (状态指示)
 │   └── panel__bd
 │       ├── div.replay-status (当前状态显示)
@@ -1012,7 +1012,7 @@ export function Panel({ title, children, collapsible, actions }: PanelProps) {
 | `WorldView` | `src/views/WorldView.tsx` | 世界视图页面 |
 | `WorkbenchView` | `src/views/WorkbenchView.tsx` | 工作台页面 |
 | `FeedView` | `src/views/FeedView.tsx` | 信息流页面 |
-| `ReplayView` | `src/views/ReplayView.tsx` | 回放页面 |
+| `ReplayView` | `src/views/ReplayView.tsx` | 系统日志页面 |
 | `SimulationProvider` | `src/app/SimulationProvider.tsx` | 模拟状态管理 |
 
 ---
@@ -1037,7 +1037,7 @@ src/
 │   ├── WorldView.tsx                # 世界视图页面
 │   ├── WorkbenchView.tsx            # 工作台页面
 │   ├── FeedView.tsx                 # 信息流页面
-│   └── ReplayView.tsx               # 回放页面
+│   └── ReplayView.tsx               # 系统日志页面
 │
 └── app/
     ├── types.ts                     # 类型定义
@@ -1047,6 +1047,6 @@ src/
 
 ---
 
-**文档版本**: v3.0
-**最后更新**: 2026-02-06
-**项目状态**: 功能完整 / 生产就绪
+**文档版本**: v3.2
+**最后更新**: 2026-02-07
+**项目状态**: 生产就绪

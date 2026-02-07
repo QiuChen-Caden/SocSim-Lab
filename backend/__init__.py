@@ -1,6 +1,6 @@
 """
-OASIS Frontend Backend Integration
+OASIS 前端后端集成
 
-This package provides the backend API service for integrating
-OASIS simulation with the frontend demo application.
+此包提供后端 API 服务，用于将 OASIS 仿真
+与前端演示应用程序集成。
 """

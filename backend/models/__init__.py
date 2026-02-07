@@ -1,5 +1,5 @@
 """
-Models package for OASIS frontend integration.
+用于 OASIS 前端集成的 Models 包。
 """
 from .types import (
     AgeBand,
@@ -55,6 +55,7 @@ from .database import (
     create_snapshot,
     get_all_snapshots,
     get_snapshot_by_id,
+    delete_snapshot,
     save_timeline_event,
     get_timeline_events,
     save_log_line,
@@ -68,7 +69,7 @@ from .database import (
 )
 
 __all__ = [
-    # Types
+    # 类型
     "AgeBand",
     "Gender",
     "InfluenceTier",
@@ -102,7 +103,7 @@ __all__ = [
     "SimulationSnapshot",
     "SimulationState",
     "VisualizationAgent",
-    # Database
+    # 数据库
     "get_db_path",
     "get_db_connection",
     "get_db_cursor",
@@ -120,6 +121,7 @@ __all__ = [
     "create_snapshot",
     "get_all_snapshots",
     "get_snapshot_by_id",
+    "delete_snapshot",
     "save_timeline_event",
     "get_timeline_events",
     "save_log_line",

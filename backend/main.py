@@ -1,8 +1,8 @@
 ﻿"""
-OASIS Frontend Integration Backend - Main FastAPI Application
+OASIS 前端集成后端 - 主 FastAPI 应用程序
 
-This backend service provides REST API and WebSocket endpoints
-to integrate the OASIS simulation platform with the frontend demo.
+此后端服务提供 REST API 和 WebSocket 端点
+以将 OASIS 仿真平台与前端演示集成。
 """
 import uuid
 import time
@@ -10,15 +10,19 @@ import asyncio
 import re
 import math
 import sys
+import os
+import sqlite3
 from typing import Optional, List, Any
 from contextlib import asynccontextmanager
 from datetime import datetime
+from pathlib import Path
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Query, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings
+from dotenv import load_dotenv
 
 from models import (
     init_db,
@@ -33,6 +37,7 @@ from models import (
     create_snapshot,
     get_all_snapshots,
     get_snapshot_by_id,
+    delete_snapshot as delete_snapshot_record,
     save_timeline_event,
     get_timeline_events,
     save_log_line,
@@ -66,29 +71,57 @@ from algorithms import (
 
 from websocket import manager as ws_manager
 
-# Ensure Unicode logs do not crash on Windows GBK output.
+# 确保 Unicode 日志在 Windows GBK 输出下不会崩溃。
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
-# ============= Configuration =============
+# ============= 配置 =============
 
 class Settings(BaseSettings):
-    """Application settings."""
+    """应用程序设置。"""
     app_name: str = "OASIS Frontend Backend"
     version: str = "0.1.0"
     debug: bool = True
     cors_origins: List[str] = ["http://localhost:5173", "http://localhost:5174", "http://localhost:5175", "http://localhost:3000"]
-    use_oasis: bool = True  # Enable OASIS simulation
+    use_oasis: bool = True  # 启用 OASIS 仿真
 
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
 
 
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+# Load .env so os.environ reflects local configuration (without overriding real env).
+_backend_env = Path(__file__).resolve().parent / ".env"
+_root_env = PROJECT_ROOT / ".env"
+load_dotenv(_backend_env, override=False)
+load_dotenv(_root_env, override=False)
+
 settings = Settings()
-DEFAULT_DEEPSEEK_KEY = "sk-5c79877413f346ceb7d4fdbf6daed4e6"
+DEFAULT_LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "deepseek")
+DEFAULT_LLM_MODEL = os.environ.get("LLM_MODEL", "deepseek-chat")
+DEFAULT_LLM_BASE_URL = os.environ.get("LLM_BASE_URL", "https://api.deepseek.com/v1")
+DEFAULT_LLM_API_KEY = (
+    os.environ.get("LLM_API_KEY")
+    or os.environ.get("DEEPSEEK_API_KEY")
+    or os.environ.get("OPENAI_API_KEY")
+)
+
+def _resolve_project_path(raw_path: str) -> Path:
+    """Resolve relative paths against project root for portable deployments."""
+    path = Path(raw_path)
+    if path.is_absolute():
+        return path
+    if str(path).startswith("."):
+        return (Path.cwd() / path).resolve()
+    return (PROJECT_ROOT / path).resolve()
+
+OASIS_RUNTIME_DB_PATH = _resolve_project_path(
+    os.environ.get("OASIS_RUNTIME_DB_PATH", "data/oasis_simulation_run.db")
+)
 
 # Import OASIS integration
 from oasis_integration import (
@@ -103,8 +136,49 @@ from oasis_integration import (
     OASIS_AVAILABLE,
 )
 
-# Path to personas file (relative to backend directory)
-PERSONAS_PATH = "twitter_personas_20260123_222506.json"
+# Path to personas file (stable regardless of CWD)
+PERSONAS_PATH = str(Path(__file__).resolve().parent / "twitter_personas_20260123_222506.json")
+
+# ============= System Log Management =============
+_system_logs: List[dict] = []
+_max_system_logs = 500
+
+def _add_system_log(level: str, message: str, category: str = "system") -> None:
+    """Add a system log and broadcast via WebSocket."""
+    global _system_logs
+    import time
+    log_entry = {
+        "id": str(uuid.uuid4()),
+        "timestamp": time.time(),
+        "level": level,
+        "message": message,
+        "category": category,
+    }
+    _system_logs.append(log_entry)
+    if len(_system_logs) > _max_system_logs:
+        _system_logs = _system_logs[-_max_system_logs:]
+
+    # Broadcast to WebSocket clients
+    try:
+        asyncio.create_task(ws_manager.broadcast_system_log(log_entry))
+    except:
+        pass  # WebSocket not ready yet
+
+    # Also print to console for debugging
+    level_icon = {"info": "", "ok": "✓", "error": "✗", "warn": "⚠"}.get(level, "")
+    print(f"[{level.upper()}] {level_icon} {message}")
+
+def sys_info(msg: str, category: str = "system") -> None:
+    _add_system_log("info", msg, category=category)
+
+def sys_ok(msg: str, category: str = "system") -> None:
+    _add_system_log("ok", msg, category=category)
+
+def sys_error(msg: str, category: str = "system") -> None:
+    _add_system_log("error", msg, category=category)
+
+def sys_warn(msg: str, category: str = "system") -> None:
+    _add_system_log("warn", msg, category=category)
 
 
 # ============= Lifecycle Management =============
@@ -114,40 +188,61 @@ async def lifespan(app: FastAPI):
     """Application lifespan manager."""
     # Startup
     print(f"Starting {settings.app_name} v{settings.version}")
+    sys_info(f"Starting {settings.app_name} v{settings.version}", category="lifecycle")
     init_db()
     print("Database initialized")
+    sys_ok("Database initialized", category="lifecycle")
 
     # Load persisted simulation state early so OASIS can consume runtime config.
     global _sim_state
     _sim_state = get_simulation_state()
-    # Enforce DeepSeek runtime defaults for this project unless user overrides later.
-    _sim_state.config.llm_enabled = True
-    _sim_state.config.llm_provider = "deepseek"
-    _sim_state.config.llm_model = _sim_state.config.llm_model or "deepseek-chat"
-    _sim_state.config.llm_base_url = _sim_state.config.llm_base_url or "https://api.deepseek.com/v1"
-    if not _sim_state.config.llm_api_key:
-        _sim_state.config.llm_api_key = DEFAULT_DEEPSEEK_KEY
+    config_key = (_sim_state.config.llm_api_key or "").strip()
+    if config_key:
+        # Keep user-saved key; only enable if user didn't explicitly disable.
+        if _sim_state.config.llm_enabled:
+            _sim_state.config.llm_enabled = True
+        _sim_state.config.llm_provider = _sim_state.config.llm_provider or DEFAULT_LLM_PROVIDER
+        _sim_state.config.llm_model = _sim_state.config.llm_model or DEFAULT_LLM_MODEL
+        _sim_state.config.llm_base_url = _sim_state.config.llm_base_url or DEFAULT_LLM_BASE_URL
+    elif DEFAULT_LLM_API_KEY:
+        _sim_state.config.llm_enabled = True
+        _sim_state.config.llm_provider = _sim_state.config.llm_provider or DEFAULT_LLM_PROVIDER
+        _sim_state.config.llm_model = _sim_state.config.llm_model or DEFAULT_LLM_MODEL
+        _sim_state.config.llm_base_url = _sim_state.config.llm_base_url or DEFAULT_LLM_BASE_URL
+        _sim_state.config.llm_api_key = DEFAULT_LLM_API_KEY
+    else:
+        if _sim_state.config.llm_enabled:
+            _sim_state.config.llm_enabled = False
+            sys_warn(
+                "LLM disabled: no API key found (set LLM_API_KEY/DEEPSEEK_API_KEY/OPENAI_API_KEY)",
+                category="llm",
+            )
     save_simulation_state(_sim_state)
 
     # Initialize OASIS if available
     oasis_initialized = False
     if settings.use_oasis and OASIS_AVAILABLE:
         print("Initializing OASIS simulation...")
+        sys_info("Initializing OASIS simulation...", category="oasis")
         oasis_initialized = await initialize_oasis_simulation(
             PERSONAS_PATH,
             runtime_config=_sim_state.config.to_dict(),
         )
         if oasis_initialized:
             print("OASIS simulation initialized successfully")
+            sys_ok("OASIS simulation initialized successfully", category="oasis")
         else:
             print("OASIS initialization failed, using fallback ticker")
+            sys_warn("OASIS initialization failed, using fallback ticker", category="oasis")
     else:
         print("OASIS not available, using fallback ticker")
+        sys_warn("OASIS not available, using fallback ticker", category="oasis")
 
     # Auto-start simulation: set is_running to True on startup
     _sim_state.is_running = True
     save_simulation_state(_sim_state)
     print(f"Simulation auto-started: tick={_sim_state.tick}, is_running={_sim_state.is_running}")
+    sys_ok(f"Simulation auto-started at tick={_sim_state.tick}", category="simulation")
 
     # Start simulation ticker (uses OASIS or fallback)
     ticker_task = asyncio.create_task(simulation_ticker())
@@ -159,6 +254,7 @@ async def lifespan(app: FastAPI):
     if oasis_initialized:
         await close_simulation()
     print(f"Shutting down {settings.app_name}")
+    sys_info(f"Shutting down {settings.app_name}", category="lifecycle")
 
 
 app = FastAPI(
@@ -971,24 +1067,33 @@ async def patch_agent_state(
     lastAction: Optional[str] = Body(None),
 ):
     """Update an agent's state."""
+    global _sim_state
     state = get_simulation_state()
 
-    if agent_id not in state.agents:
+    agent_key: Any = None
+    if agent_id in state.agents:
+        agent_key = agent_id
+    elif str(agent_id) in state.agents:
+        agent_key = str(agent_id)
+
+    if agent_key is None:
         raise HTTPException(status_code=404, detail=f"Agent {agent_id} state not found")
 
+    agent_state = state.agents[agent_key]["state"]
     if mood is not None:
-        state.agents[agent_id]["state"]["mood"] = mood
+        agent_state["mood"] = mood
     if stance is not None:
-        state.agents[agent_id]["state"]["stance"] = stance
+        agent_state["stance"] = stance
     if resources is not None:
-        state.agents[agent_id]["state"]["resources"] = resources
+        agent_state["resources"] = resources
     if lastAction is not None:
-        state.agents[agent_id]["state"]["lastAction"] = lastAction
+        agent_state["lastAction"] = lastAction
 
     save_simulation_state(state)
+    _sim_state = state
 
     # Emit update
-    await ws_manager.emit_agent_update(agent_id, state.agents[agent_id]["state"])
+    await ws_manager.emit_agent_update(agent_id, agent_state)
 
     return {"status": "ok"}
 
@@ -1126,18 +1231,36 @@ async def patch_state(
 
     if isRunning is not None:
         state.is_running = isRunning
+        sys_info(f"State patch: isRunning={state.is_running}", category="simulation")
     if speed is not None:
         state.speed = max(0.1, min(10.0, speed))
+        sys_info(f"State patch: speed={state.speed}", category="simulation")
     if tick is not None:
         state.tick = max(0, tick)
+        sys_info(f"State patch: tick={state.tick}", category="simulation")
     if selectedAgentId is not None:
         state.selected_agent_id = selectedAgentId
     if config is not None:
         merged_config = state.config.to_dict()
         merged_config.update(config)
+        # If LLM enabled without API key, disable to prevent failing calls.
+        if merged_config.get("llmEnabled") and not merged_config.get("llmApiKey"):
+            if DEFAULT_LLM_API_KEY:
+                merged_config["llmApiKey"] = DEFAULT_LLM_API_KEY
+                merged_config["llmProvider"] = merged_config.get("llmProvider") or DEFAULT_LLM_PROVIDER
+                merged_config["llmModel"] = merged_config.get("llmModel") or DEFAULT_LLM_MODEL
+                merged_config["llmBaseUrl"] = merged_config.get("llmBaseUrl") or DEFAULT_LLM_BASE_URL
+            else:
+                merged_config["llmEnabled"] = False
+                merged_config["llmProvider"] = "stub"
+                sys_warn(
+                    "LLM disabled: missing API key (set LLM_API_KEY/DEEPSEEK_API_KEY/OPENAI_API_KEY)",
+                    category="llm",
+                )
         state.config = SimulationConfig.from_dict(merged_config)
         if settings.use_oasis and OASIS_AVAILABLE:
             await update_simulation_config(state.config.to_dict())
+        sys_ok("State patch: config updated", category="simulation")
 
     save_simulation_state(state)
     _sim_state = state
@@ -1166,6 +1289,7 @@ async def start_simulation(request: Optional[SimulationControlRequest] = None):
     save_simulation_state(_sim_state)
 
     await ws_manager.emit_tick_update(_sim_state.tick, _sim_state.is_running, _sim_state.speed)
+    sys_ok(f"Simulation started at tick={_sim_state.tick}, speed={_sim_state.speed}", category="simulation")
 
     return {"status": "started", "tick": _sim_state.tick}
 
@@ -1179,6 +1303,7 @@ async def stop_simulation():
     save_simulation_state(_sim_state)
 
     await ws_manager.emit_tick_update(_sim_state.tick, _sim_state.is_running, _sim_state.speed)
+    sys_warn(f"Simulation stopped at tick={_sim_state.tick}", category="simulation")
 
     return {"status": "stopped", "tick": _sim_state.tick}
 
@@ -1192,6 +1317,7 @@ async def pause_simulation():
     save_simulation_state(_sim_state)
 
     await ws_manager.emit_tick_update(_sim_state.tick, _sim_state.is_running, _sim_state.speed)
+    sys_info(f"Simulation paused at tick={_sim_state.tick}", category="simulation")
 
     return {"status": "paused", "tick": _sim_state.tick}
 
@@ -1205,6 +1331,7 @@ async def resume_simulation():
     save_simulation_state(_sim_state)
 
     await ws_manager.emit_tick_update(_sim_state.tick, _sim_state.is_running, _sim_state.speed)
+    sys_ok(f"Simulation resumed at tick={_sim_state.tick}", category="simulation")
 
     return {"status": "resumed", "tick": _sim_state.tick}
 
@@ -1218,6 +1345,7 @@ async def set_simulation_speed(speed: float = Body(..., embed=True)):
     save_simulation_state(_sim_state)
 
     await ws_manager.emit_tick_update(_sim_state.tick, _sim_state.is_running, _sim_state.speed)
+    sys_info(f"Simulation speed set to {_sim_state.speed}", category="simulation")
 
     return {"status": "ok", "speed": _sim_state.speed}
 
@@ -1231,6 +1359,7 @@ async def set_simulation_tick(tick: int = Body(..., embed=True)):
     save_simulation_state(_sim_state)
 
     await ws_manager.emit_tick_update(_sim_state.tick, _sim_state.is_running, _sim_state.speed)
+    sys_info(f"Simulation tick set to {_sim_state.tick}", category="simulation")
 
     return {"status": "ok", "tick": _sim_state.tick}
 
@@ -1372,6 +1501,18 @@ async def create_log(
     )
 
 
+@app.get("/api/system-logs")
+async def get_system_logs(
+    limit: int = Query(100, description="Maximum number of logs to return"),
+    level: Optional[str] = Query(None, description="Filter by log level"),
+):
+    """Get system logs (backend debug logs)."""
+    logs = _system_logs.copy()
+    if level:
+        logs = [log for log in logs if log["level"] == level]
+    return logs[-limit:]
+
+
 # ============= Snapshots Endpoints =============
 
 @app.get("/api/snapshots")
@@ -1451,7 +1592,9 @@ async def load_snapshot(snapshot_id: str):
 @app.delete("/api/snapshots/{snapshot_id}")
 async def delete_snapshot(snapshot_id: str):
     """Delete a snapshot."""
-    # TODO: Implement delete in database.py
+    deleted = delete_snapshot_record(snapshot_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail=f"Snapshot {snapshot_id} not found")
     return {"status": "deleted", "snapshotId": snapshot_id}
 
 
@@ -1599,6 +1742,69 @@ async def get_agent_layout(
     }
 
 
+@app.get("/api/visualization/network")
+async def get_agent_network(
+    limit: int = Query(4000, description="Maximum number of edges to return"),
+):
+    """
+    Get real network edges from OASIS runtime database.
+
+    Returns follow relationships when available; falls back to empty list.
+    """
+    limit = max(100, min(limit, 20000))
+    edges: list[dict[str, Any]] = []
+    db_path = OASIS_RUNTIME_DB_PATH
+    if not db_path.exists():
+        return {"edges": edges, "source": "missing_runtime_db"}
+
+    try:
+        conn = sqlite3.connect(str(db_path), timeout=30)
+        try:
+            conn.execute("PRAGMA journal_mode=WAL;")
+            conn.execute("PRAGMA synchronous=NORMAL;")
+            conn.execute("PRAGMA busy_timeout=5000;")
+            conn.execute("PRAGMA foreign_keys=ON;")
+        except Exception:
+            pass
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT follower_id, followee_id
+            FROM follow
+            WHERE follower_id IS NOT NULL AND followee_id IS NOT NULL
+            ORDER BY follow_id DESC
+            LIMIT ?
+            """,
+            (limit,),
+        )
+        rows = cur.fetchall()
+        conn.close()
+
+        seen: set[tuple[int, int]] = set()
+        for follower_id, followee_id in rows:
+            try:
+                source = int(follower_id)
+                target = int(followee_id)
+            except Exception:
+                continue
+            if source == target:
+                continue
+            key = (source, target) if source < target else (target, source)
+            if key in seen:
+                continue
+            seen.add(key)
+            edges.append({
+                "source": key[0],
+                "target": key[1],
+                "kind": "follow",
+                "strength": 0.95,
+            })
+    except Exception as e:
+        return {"edges": [], "source": "runtime_db_error", "error": str(e)}
+
+    return {"edges": edges, "source": "oasis_follow_table"}
+
+
 # ============= WebSocket Endpoint =============
 
 @app.websocket("/ws")
@@ -1684,4 +1890,3 @@ if __name__ == "__main__":
         reload=False,
         log_level="info",
     )
-

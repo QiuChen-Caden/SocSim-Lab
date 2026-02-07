@@ -1,9 +1,9 @@
 # SocSim Lab - API 接口文档
 
-> **版本**: v3.1
-> **更新日期**: 2026-02-06
-> **Base URL**: `http://localhost:8765`
-> **WebSocket**: `ws://localhost:8765/ws`
+> **版本**: v3.2
+> **更新日期**: 2026-02-07
+> **Base URL**: `http://localhost:8000`
+> **WebSocket**: `ws://localhost:8000/ws`
 
 ---
 
@@ -1261,7 +1261,7 @@ interface SimulationConfig {
 {
   "llmProvider": "vllm",
   "llmModel": "meta-llama/Llama-3-8b",
-  "llmBaseUrl": "http://localhost:8000/v1",
+  "llmBaseUrl": "https://api.deepseek.com/v1",
   "llmApiKey": "",
   "llmTemperature": 0.7,
   "llmMaxTokens": 512
@@ -1292,7 +1292,7 @@ interface SimulationConfig {
 通过 `PATCH /api/state` 端点更新配置：
 
 ```bash
-curl -X PATCH http://localhost:8765/api/state \
+curl -X PATCH http://localhost:8000/api/state \
   -H "Content-Type: application/json" \
   -d '{
     "config": {
@@ -1682,6 +1682,6 @@ stopped → running → paused → running
 
 ---
 
-**文档版本**: v3.0
-**最后更新**: 2026-02-06
+**文档版本**: v3.2
+**最后更新**: 2026-02-07
 **维护者**: SocSim Lab Team

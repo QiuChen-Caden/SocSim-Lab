@@ -66,6 +66,8 @@ function Shell() {
       const newTheme = prev === 'dark' ? 'light' : 'dark'
       localStorage.setItem('theme', newTheme)
       document.documentElement.setAttribute('data-theme', newTheme)
+      // 触发主题变化事件，让图表组件知道需要更新颜色
+      window.dispatchEvent(new Event('theme-changed'))
       return newTheme
     })
   }
@@ -126,7 +128,7 @@ function Shell() {
                 Feed 信息流
               </button>
               <button className={`tab ${active === 'replay' ? 'tab--active' : ''}`} onClick={() => setActive('replay')}>
-                Replay 回放
+                System Log 系统日志
               </button>
             </nav>
           </header>

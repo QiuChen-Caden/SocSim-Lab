@@ -1,5 +1,5 @@
 """
-WebSocket connection manager for real-time updates.
+用于实时更新的 WebSocket 连接管理器。
 """
 import json
 import uuid
@@ -14,49 +14,49 @@ from fastapi import WebSocket
 
 @dataclass
 class Subscription:
-    """A subscription to a specific event type."""
+    """对特定事件类型的订阅。"""
     event_types: Set[str] = field(default_factory=set)
     agent_ids: Set[int] = field(default_factory=set)
 
 
 class WebSocketManager:
     """
-    Manages WebSocket connections and broadcasts messages to subscribers.
+    管理 WebSocket 连接并向订阅者广播消息。
     """
 
     def __init__(self):
-        """Initialize the manager."""
-        # Active connections: client_id -> WebSocket
+        """初始化管理器。"""
+        # 活动连接：client_id -> WebSocket
         self.active_connections: Dict[str, WebSocket] = {}
 
-        # Subscriptions: client_id -> Subscription
+        # 订阅：client_id -> Subscription
         self.subscriptions: Dict[str, Subscription] = {}
 
-        # Client subscriptions by event type: event_type -> set of client_ids
+        # 按事件类型的客户端订阅：event_type -> client_ids 集合
         self.event_subscribers: Dict[str, Set[str]] = defaultdict(set)
 
-        # Agent subscriptions: agent_id -> set of client_ids
+        # 代理订阅：agent_id -> client_ids 集合
         self.agent_subscribers: Dict[int, Set[str]] = defaultdict(set)
 
-        # Message queue for broadcasting
+        # 用于广播的消息队列
         self.message_queue: asyncio.Queue = asyncio.Queue()
 
-        # Broadcast task
+        # 广播任务
         self._broadcast_task: Optional[asyncio.Task] = None
 
-        # Event callbacks
+        # 事件回调
         self._callbacks: Dict[str, Set[Callable]] = defaultdict(set)
 
     async def connect(self, websocket: WebSocket, client_id: Optional[str] = None) -> str:
         """
-        Connect a new WebSocket client.
+        连接新的 WebSocket 客户端。
 
-        Args:
-            websocket: The WebSocket connection
-            client_id: Optional client ID (generated if not provided)
+        参数：
+            websocket: WebSocket 连接
+            client_id: 可选的客户端 ID（如果未提供则生成）
 
-        Returns:
-            The client ID
+        返回：
+            客户端 ID
         """
         await websocket.accept()
 
@@ -66,7 +66,7 @@ class WebSocketManager:
         self.active_connections[client_id] = websocket
         self.subscriptions[client_id] = Subscription()
 
-        # Send welcome message
+        # 发送欢迎消息
         await self.send_personal_message({
             "type": "connected",
             "clientId": client_id,
@@ -77,21 +77,21 @@ class WebSocketManager:
 
     def disconnect(self, client_id: str) -> None:
         """
-        Disconnect a client.
+        断开客户端。
 
-        Args:
-            client_id: The client ID to disconnect
+        参数：
+            client_id: 要断开的客户端 ID
         """
         if client_id in self.active_connections:
             del self.active_connections[client_id]
 
         if client_id in self.subscriptions:
-            # Clean up event subscriptions
+            # 清理事件订阅
             subscription = self.subscriptions[client_id]
             for event_type in subscription.event_types:
                 self.event_subscribers[event_type].discard(client_id)
 
-            # Clean up agent subscriptions
+            # 清理代理订阅
             for agent_id in subscription.agent_ids:
                 self.agent_subscribers[agent_id].discard(client_id)
 
@@ -99,14 +99,14 @@ class WebSocketManager:
 
     async def send_personal_message(self, message: dict, client_id: str) -> bool:
         """
-        Send a message to a specific client.
+        向特定客户端发送消息。
 
-        Args:
-            message: The message to send (will be JSON serialized)
-            client_id: The target client ID
+        参数：
+            message: 要发送的消息（将被序列化为 JSON）
+            client_id: 目标客户端 ID
 
-        Returns:
-            True if sent successfully, False otherwise
+        返回：
+            如果成功发送则为 True，否则为 False
         """
         if client_id not in self.active_connections:
             return False
@@ -116,35 +116,35 @@ class WebSocketManager:
             await websocket.send_json(message)
             return True
         except Exception as e:
-            # Connection might be closed
+            # 连接可能已关闭
             self.disconnect(client_id)
             return False
 
     async def broadcast(self, message: dict, event_type: Optional[str] = None) -> None:
         """
-        Broadcast a message to all connected clients (or filtered by event type).
+        向所有连接的客户端广播消息（或按事件类型过滤）。
 
-        Args:
-            message: The message to broadcast
-            event_type: Optional event type to filter subscribers
+        参数：
+            message: 要广播的消息
+            event_type: 可选的事件类型以过滤订阅者
         """
-        # Determine target clients
+        # 确定目标客户端
         if event_type and event_type in self.event_subscribers:
             target_clients = self.event_subscribers[event_type]
         else:
             target_clients = self.active_connections.keys()
 
-        # Send to all target clients
-        for client_id in list(target_clients):  # Copy to avoid modification during iteration
+        # 向所有目标客户端发送
+        for client_id in list(target_clients):  # 复制以避免在迭代期间修改
             await self.send_personal_message(message, client_id)
 
     async def broadcast_to_agent_subscribers(self, agent_id: int, message: dict) -> None:
         """
-        Broadcast a message to clients subscribed to a specific agent.
+        向订阅特定代理的客户端广播消息。
 
-        Args:
-            agent_id: The agent ID
-            message: The message to broadcast
+        参数：
+            agent_id: 代理 ID
+            message: 要广播的消息
         """
         if agent_id not in self.agent_subscribers:
             return
@@ -155,12 +155,12 @@ class WebSocketManager:
     def subscribe(self, client_id: str, event_types: Optional[list[str]] = None,
                   agent_ids: Optional[list[int]] = None) -> None:
         """
-        Subscribe a client to specific event types and/or agents.
+        将客户端订阅到特定事件类型和/或代理。
 
-        Args:
-            client_id: The client ID
-            event_types: Optional list of event types to subscribe to
-            agent_ids: Optional list of agent IDs to subscribe to
+        参数：
+            client_id: 客户端 ID
+            event_types: 要订阅的可选事件类型列表
+            agent_ids: 要订阅的可选代理 ID 列表
         """
         if client_id not in self.subscriptions:
             return
@@ -180,12 +180,12 @@ class WebSocketManager:
     def unsubscribe(self, client_id: str, event_types: Optional[list[str]] = None,
                     agent_ids: Optional[list[int]] = None) -> None:
         """
-        Unsubscribe a client from specific event types and/or agents.
+        从特定事件类型和/或代理取消订阅客户端。
 
-        Args:
-            client_id: The client ID
-            event_types: Optional list of event types to unsubscribe from
-            agent_ids: Optional list of agent IDs to unsubscribe from
+        参数：
+            client_id: 客户端 ID
+            event_types: 要取消订阅的可选事件类型列表
+            agent_ids: 要取消订阅的可选代理 ID 列表
         """
         if client_id not in self.subscriptions:
             return
@@ -203,20 +203,20 @@ class WebSocketManager:
                 self.agent_subscribers[agent_id].discard(client_id)
 
     def get_connection_count(self) -> int:
-        """Get the number of active connections."""
+        """获取活动连接数。"""
         return len(self.active_connections)
 
     def get_subscriber_count(self, event_type: Optional[str] = None,
                             agent_id: Optional[int] = None) -> int:
         """
-        Get the number of subscribers.
+        获取订阅者数量。
 
-        Args:
-            event_type: Optional event type to count
-            agent_id: Optional agent ID to count
+        参数：
+            event_type: 可选的要计数的事件类型
+            agent_id: 可选的要计数的代理 ID
 
-        Returns:
-            Number of subscribers
+        返回：
+            订阅者数量
         """
         if event_type:
             return len(self.event_subscribers.get(event_type, set()))
@@ -225,9 +225,9 @@ class WebSocketManager:
         else:
             return len(self.active_connections)
 
-    # Helper methods for specific event types
+    # 用于特定事件类型的辅助方法
     async def emit_tick_update(self, tick: int, is_running: bool, speed: float) -> None:
-        """Emit a tick update event."""
+        """发送 tick 更新事件。"""
         await self.broadcast({
             "type": "tick_update",
             "tick": tick,
@@ -237,7 +237,7 @@ class WebSocketManager:
         }, event_type="tick")
 
     async def emit_agent_update(self, agent_id: int, state: dict) -> None:
-        """Emit an agent state update event."""
+        """发送代理状态更新事件。"""
         await self.broadcast_to_agent_subscribers(agent_id, {
             "type": "agent_update",
             "agentId": agent_id,
@@ -246,7 +246,7 @@ class WebSocketManager:
         })
 
     async def emit_post_created(self, post: dict) -> None:
-        """Emit a post created event."""
+        """发送帖子创建事件。"""
         await self.broadcast({
             "type": "post_created",
             "post": post,
@@ -254,7 +254,7 @@ class WebSocketManager:
         }, event_type="post")
 
     async def emit_event_created(self, event: dict) -> None:
-        """Emit a timeline event created."""
+        """发送时间线事件创建。"""
         await self.broadcast({
             "type": "event_created",
             "event": event,
@@ -262,7 +262,7 @@ class WebSocketManager:
         }, event_type="event")
 
     async def emit_log_added(self, log: dict) -> None:
-        """Emit a log added event."""
+        """发送日志添加事件。"""
         await self.broadcast({
             "type": "log_added",
             "log": log,
@@ -270,7 +270,7 @@ class WebSocketManager:
         }, event_type="log")
 
     async def emit_simulation_state(self, state: dict) -> None:
-        """Emit full simulation state update."""
+        """发送完整仿真状态更新。"""
         await self.broadcast({
             "type": "simulation_state",
             "state": state,
@@ -278,7 +278,7 @@ class WebSocketManager:
         }, event_type="state")
 
     async def emit_error(self, error: str, details: Optional[dict] = None) -> None:
-        """Emit an error event."""
+        """发送错误事件。"""
         await self.broadcast({
             "type": "error",
             "error": error,
@@ -287,7 +287,7 @@ class WebSocketManager:
         }, event_type="error")
 
     async def broadcast_system_log(self, log: dict) -> None:
-        """Emit a system log event."""
+        """发送系统日志事件。"""
         await self.broadcast({
             "type": "system_log",
             "log": log,
@@ -296,15 +296,15 @@ class WebSocketManager:
 
     # Event callbacks
     def on(self, event_type: str, callback: Callable) -> None:
-        """Register a callback for an event type."""
+        """为事件类型注册回调。"""
         self._callbacks[event_type].add(callback)
 
     def off(self, event_type: str, callback: Callable) -> None:
-        """Unregister a callback for an event type."""
+        """取消注册事件类型的回调。"""
         self._callbacks[event_type].discard(callback)
 
     async def emit(self, event_type: str, data: Any) -> None:
-        """Emit an event to registered callbacks."""
+        """向已注册的回调发送事件。"""
         if event_type in self._callbacks:
             for callback in self._callbacks[event_type]:
                 if asyncio.iscoroutinefunction(callback):

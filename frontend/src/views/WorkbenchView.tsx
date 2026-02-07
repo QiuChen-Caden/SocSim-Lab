@@ -20,11 +20,11 @@ function getChartColors() {
 type StepTabKey = 'scenario' | 'pipeline' | 'groups' | 'config'
 
 type BenchMetrics = {
-  // Micro-level alignment
+  // 微观层面对齐 Micro-level alignment
   accuracy: number
   macroF1: number
   cosineSimilarity: number
-  // Macro-level alignment
+  // 宏观层面对齐 Macro-level alignment
   bias: number
   diversity: number
   dtw: number
@@ -42,7 +42,7 @@ type BehaviorConsistencyMetrics = {
   nps: number
   // Overall Consistency Score - 总体一致性
   ocs: number
-  // Detailed breakdown
+  // 详细分解 Detailed breakdown
   postFrequencyMatch: number
   interactionPatternMatch: number
   emotionStability: number
@@ -88,12 +88,12 @@ export function WorkbenchView() {
   const [mergeTargetGroup, setMergeTargetGroup] = useState<string | null>(null)
   const [bookmarkTitle, setBookmarkTitle] = useState('')
 
-  // Get bookmarks
+  // 获取书签 Get bookmarks
   const bookmarks = useMemo(() => {
     return sim.state.events.filter(e => e.type === 'bookmark').sort((a, b) => b.tick - a.tick)
   }, [sim.state.events])
 
-  // Calculate feed stats for metrics dashboard
+  // 为指标仪表板计算 feed 统计信息 Calculate feed stats for metrics dashboard
   const feedStats = useMemo(() => {
     const feed = sim.state.feed
     if (feed.length === 0) return null
@@ -272,7 +272,7 @@ export function WorkbenchView() {
                                   const agents = Object.values(sim.state.agents)
                                   const totalAgents = agents.length
 
-                                  // Influence tier distribution
+                                  // 影响力层级分布 Influence tier distribution
                                   const influenceTierDistribution: Record<string, number> = {}
                                   agents.forEach(a => {
                                     const t = a.profile.social_status.influence_tier
@@ -286,28 +286,28 @@ export function WorkbenchView() {
                                     groupDistribution[g] = (groupDistribution[g] || 0) + 1
                                   })
 
-                                  // Age band distribution
+                                  // 年龄段分布 Age band distribution
                                   const ageBandDistribution: Record<string, number> = {}
                                   agents.forEach(a => {
                                     const ab = a.profile.identity.age_band
                                     ageBandDistribution[ab] = (ageBandDistribution[ab] || 0) + 1
                                   })
 
-                                  // Gender distribution
+  // 性别分布 Gender distribution
                                   const genderDistribution: Record<string, number> = {}
                                   agents.forEach(a => {
                                     const g = a.profile.identity.gender
                                     genderDistribution[g] = (genderDistribution[g] || 0) + 1
                                   })
 
-                                  // Sentiment distribution
+  // 情感分布 Sentiment distribution
                                   const sentimentDistribution: Record<string, number> = {}
                                   agents.forEach(a => {
                                     const s = a.profile.cognitive_state.core_affect.sentiment
                                     sentimentDistribution[s] = (sentimentDistribution[s] || 0) + 1
                                   })
 
-                                  // Economic band distribution
+  // 经济水平分布 Economic band distribution
                                   const economicBandDistribution: Record<string, number> = {}
                                   agents.forEach(a => {
                                     const eb = a.profile.social_status.economic_band
@@ -1308,14 +1308,14 @@ export function WorkbenchView() {
                       onClick={() => {
                         if (benchRunning) return
                         setBenchRunning(true)
-                        // Simulate evaluation
+                        // 模拟评估 Simulate evaluation
                         setTimeout(() => {
                           setBenchMetrics({
-                            // Micro-level alignment
+                            // 微观层面对齐 Micro-level alignment
                             accuracy: 0.82 + Math.random() * 0.1,
                             macroF1: 0.75 + Math.random() * 0.12,
                             cosineSimilarity: 0.78 + Math.random() * 0.15,
-                            // Macro-level alignment
+                            // 宏观层面对齐 Macro-level alignment
                             bias: Math.sin(sim.state.tick / 50) * 0.3,
                             diversity: 0.65 + Math.random() * 0.2,
                             dtw: 150 + Math.random() * 50,
@@ -1565,7 +1565,7 @@ export function WorkbenchView() {
                       onClick={() => {
                         if (behaviorConsistencyRunning) return
                         setBehaviorConsistencyRunning(true)
-                        // Simulate behavior consistency evaluation
+                        // 模拟行为一致性评估 Simulate behavior consistency evaluation
                         setTimeout(() => {
                           const bps = 0.75 + Math.random() * 0.15
                           const das = 0.68 + Math.random() * 0.2
@@ -1797,12 +1797,12 @@ function IntervenePanel() {
   const [agentMultiSelectMode, setAgentMultiSelectMode] = useState(false)
   const [targetAgents, setTargetAgents] = useState<number[]>([])
 
-  // Get available groups
+  // 获取可用群体 Get available groups
   const groupList = useMemo(() => {
     return Object.values(sim.state.groups).map(g => g.key)
   }, [sim.state.groups])
 
-  // Get available agents for multi-select
+  // 获取可用于多选的智能体 Get available agents for multi-select
   const availableAgents = useMemo(() => {
     return Object.entries(sim.state.agents).map(([id, agent]) => ({
       id: Number(id),
@@ -1860,12 +1860,12 @@ function IntervenePanel() {
   const handleApplyGroupIntervention = async () => {
     if (targetGroups.length === 0 || !cmd.trim()) return
 
-    // Find all agents in the target groups
+    // 查找目标群体中的所有智能体 Find all agents in the target groups
     const groupAgents = Object.entries(sim.state.agents)
       .filter(([_, agent]) => targetGroups.includes(agent.profile.group))
       .map(([agentId, _]) => Number(agentId))
 
-    // Apply intervention to all agents in the selected groups
+    // 对所选群体中的所有智能体应用干预 Apply intervention to all agents in the selected groups
     let successCount = 0
     for (const agentId of groupAgents) {
       const ok = await sim.actions.applyIntervention(`[Group ${targetGroups.join(', ')}] ${cmd}`, agentId)
@@ -1889,7 +1889,7 @@ function IntervenePanel() {
     if (!cmd.trim()) return
 
     if (agentMultiSelectMode && targetAgents.length > 0) {
-      // Apply to multiple agents
+      // 应用于多个智能体 Apply to multiple agents
       let successCount = 0
       for (const agentId of targetAgents) {
         const ok = await sim.actions.applyIntervention(cmd, agentId)
@@ -1905,7 +1905,7 @@ function IntervenePanel() {
       })
       sim.actions.logOk(`intervention applied to ${successCount}/${targetAgents.length} agents: ${cmd}`)
     } else {
-      // Apply to single agent
+      // 应用于单个智能体 Apply to single agent
       const agentId = Number(target)
       const ok = await sim.actions.applyIntervention(cmd, Number.isFinite(agentId) ? agentId : undefined)
       if (!ok) return

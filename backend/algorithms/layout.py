@@ -1,8 +1,8 @@
 """
-2D Layout algorithms for agent visualization.
+用于代理可视化的2D布局算法。
 
-Implements force-directed graph layout algorithms to position agents
-in 2D space based on their social connections.
+实现力导向图布局算法，根据代理的社交连接
+在2D空间中定位代理。
 """
 import random
 import math
@@ -29,22 +29,22 @@ except ImportError:
 
 @dataclass
 class Point2D:
-    """A 2D point."""
+    """一个2D点。"""
     x: float
     y: float
 
     def distance_to(self, other: "Point2D") -> float:
-        """Calculate Euclidean distance to another point."""
+        """计算到另一个点的欧几里得距离。"""
         return math.sqrt((self.x - other.x) ** 2 + (self.y - other.y) ** 2)
 
     def to_tuple(self) -> tuple[float, float]:
-        """Convert to tuple."""
+        """转换为元组。"""
         return (self.x, self.y)
 
 
 @dataclass
 class LayoutResult:
-    """Result of a layout algorithm."""
+    """布局算法的结果。"""
     positions: dict[int, Point2D]  # agent_id -> (x, y)
     iterations: int
     converged: bool
@@ -53,9 +53,9 @@ class LayoutResult:
 
 class ForceDirectedLayout:
     """
-    Force-directed graph layout algorithm.
+    力导向图布局算法。
 
-    Based on Fruchterman-Reingold algorithm with optimizations.
+    基于优化的 Fruchterman-Reingold 算法。
     """
 
     def __init__(
@@ -67,14 +67,14 @@ class ForceDirectedLayout:
         initial_temperature: float = 0.1,
     ):
         """
-        Initialize the layout algorithm.
+        初始化布局算法。
 
-        Args:
-            width: Canvas width
-            height: Canvas height
-            iterations: Maximum number of iterations
-            cooling_factor: Temperature cooling factor per iteration
-            initial_temperature: Initial temperature (as fraction of canvas size)
+        参数：
+            width: 画布宽度
+            height: 画布高度
+            iterations: 最大迭代次数
+            cooling_factor: 每次迭代的温度冷却因子
+            initial_temperature: 初始温度（作为画布大小的分数）
         """
         self.width = width
         self.height = height
@@ -82,7 +82,7 @@ class ForceDirectedLayout:
         self.cooling_factor = cooling_factor
         self.initial_temperature = min(width, height) * initial_temperature
 
-        # Force parameters
+        # 力参数
         self.repulsion_constant = 5000.0
         self.attraction_constant = 0.01
         self.gravity_constant = 0.0001
@@ -95,18 +95,18 @@ class ForceDirectedLayout:
         fixed_nodes: set[int] | None = None,
     ) -> LayoutResult:
         """
-        Compute the layout using force-directed algorithm.
+        使用力导向算法计算布局。
 
-        Args:
-            edges: List of (source, target) edges
-            weights: Optional edge weights
-            initial_positions: Optional initial positions for nodes
-            fixed_nodes: Set of node IDs that should not move
+        参数：
+            edges: (源, 目标) 边的列表
+            weights: 可选的边权重
+            initial_positions: 节点的可选初始位置
+            fixed_nodes: 不应移动的节点 ID 集合
 
-        Returns:
-            LayoutResult with final positions
+        返回：
+            包含最终位置的 LayoutResult
         """
-        # Extract nodes
+        # 提取节点
         nodes = set()
         for source, target in edges:
             nodes.add(source)
@@ -119,7 +119,7 @@ class ForceDirectedLayout:
         if num_nodes == 0:
             return LayoutResult(positions={}, iterations=0, converged=True, final_energy=0.0)
 
-        # Initialize positions
+        # 初始化位置
         if initial_positions:
             positions = [
                 Point2D(
@@ -134,7 +134,7 @@ class ForceDirectedLayout:
                 for _ in range(num_nodes)
             ]
 
-        # Build adjacency list
+        # 构建邻接表
         adjacency = defaultdict(list)
         edge_weights = defaultdict(float)
         for i, (source, target) in enumerate(edges):
@@ -146,14 +146,14 @@ class ForceDirectedLayout:
 
         fixed_indices = {node_index[node] for node in (fixed_nodes or []) if node in node_index}
 
-        # Main loop
+        # 主循环
         temperature = self.initial_temperature
         energy = float('inf')
 
         for iteration in range(self.iterations):
             old_positions = [Point2D(p.x, p.y) for p in positions]
 
-            # Calculate forces
+            # 计算力
             displacements = [Point2D(0.0, 0.0) for _ in range(num_nodes)]
 
             # Repulsion (all pairs)
@@ -162,9 +162,9 @@ class ForceDirectedLayout:
                     dx = positions[i].x - positions[j].x
                     dy = positions[i].y - positions[j].y
                     dist_sq = dx * dx + dy * dy
-                    dist = math.sqrt(dist_sq) + 0.001  # Avoid division by zero
+                    dist = math.sqrt(dist_sq) + 0.001  # 避免除以零
 
-                    # Repulsive force
+                    # 排斥力
                     force = self.repulsion_constant / dist_sq
                     fx = (dx / dist) * force
                     fy = (dy / dist) * force
@@ -180,14 +180,14 @@ class ForceDirectedLayout:
                 for target in targets:
                     j = node_index[target]
                     if i >= j:
-                        continue  # Process each edge once
+                        continue  # 每条边只处理一次
 
                     weight = edge_weights.get((source, target), 1.0)
                     dx = positions[i].x - positions[j].x
                     dy = positions[i].y - positions[j].y
                     dist = math.sqrt(dx * dx + dy * dy) + 0.001
 
-                    # Attractive force (spring)
+                    # 吸引力（弹簧）
                     force = self.attraction_constant * dist * math.log(dist + 1) * weight
                     fx = (dx / dist) * force
                     fy = (dy / dist) * force
@@ -256,18 +256,18 @@ class ForceDirectedLayout:
 
 class CircularLayout:
     """
-    Circular layout algorithm.
-    Places nodes in a circle, good for showing disconnected components.
+    圆形布局算法。
+    将节点放置在圆周上，适合显示不连通的组件。
     """
 
     def __init__(self, center_x: float = 500.0, center_y: float = 500.0, radius: float = 400.0):
         """
-        Initialize circular layout.
+        初始化圆形布局。
 
-        Args:
-            center_x: Center X coordinate
-            center_y: Center Y coordinate
-            radius: Circle radius
+        参数：
+            center_x: 中心 X 坐标
+            center_y: 中心 Y 坐标
+            radius: 圆半径
         """
         self.center_x = center_x
         self.center_y = center_y
@@ -279,14 +279,14 @@ class CircularLayout:
         start_angle: float = 0.0,
     ) -> LayoutResult:
         """
-        Compute circular layout.
+        计算圆形布局。
 
-        Args:
-            nodes: List of node IDs
-            start_angle: Starting angle in radians
+        参数：
+            nodes: 节点 ID 列表
+            start_angle: 起始角度（弧度）
 
-        Returns:
-            LayoutResult with positions
+        返回：
+            包含位置的 LayoutResult
         """
         num_nodes = len(nodes)
         if num_nodes == 0:
@@ -311,18 +311,18 @@ class CircularLayout:
 
 class GridLayout:
     """
-    Grid layout algorithm.
-    Places nodes in a regular grid pattern.
+    网格布局算法。
+    将节点放置在规则网格中。
     """
 
     def __init__(self, width: float = 1000.0, height: float = 1000.0, padding: float = 50.0):
         """
-        Initialize grid layout.
+        初始化网格布局。
 
-        Args:
-            width: Canvas width
-            height: Canvas height
-            padding: Padding around the grid
+        参数：
+            width: 画布宽度
+            height: 画布高度
+            padding: 网格周围的填充
         """
         self.width = width
         self.height = height
@@ -334,14 +334,14 @@ class GridLayout:
         columns: int | None = None,
     ) -> LayoutResult:
         """
-        Compute grid layout.
+        计算网格布局。
 
-        Args:
-            nodes: List of node IDs
-            columns: Number of columns (auto-calculated if None)
+        参数：
+            nodes: 节点 ID 列表
+            columns: 列数（如果为 None 则自动计算）
 
-        Returns:
-            LayoutResult with positions
+        返回：
+            包含位置的 LayoutResult
         """
         num_nodes = len(nodes)
         if num_nodes == 0:
@@ -378,17 +378,17 @@ def layout_with_igraph(
     algorithm: str = "fr",  # fr, kk, drl, grid
 ) -> LayoutResult:
     """
-    Compute layout using igraph library (faster for large graphs).
+    使用 igraph 库计算布局（适用于大型图）。
 
-    Args:
-        edges: List of (source, target) edges
-        weights: Optional edge weights
-        width: Canvas width
-        height: Canvas height
-        algorithm: Layout algorithm ('fr', 'kk', 'drl', 'grid')
+    参数：
+        edges: (源, 目标) 边的列表
+        weights: 可选的边权重
+        width: 画布宽度
+        height: 画布高度
+        algorithm: 布局算法（'fr'、'kk'、'drl'、'grid'）
 
-    Returns:
-        LayoutResult with positions
+    返回：
+        包含位置的 LayoutResult
     """
     if not HAS_IGRAPH:
         raise ImportError("igraph is not installed. Install with: pip install python-igraph")
@@ -448,17 +448,17 @@ def layout_with_networkx(
     algorithm: str = "spring",  # spring, circular, shell, kamada_kawai
 ) -> LayoutResult:
     """
-    Compute layout using NetworkX library.
+    使用 NetworkX 库计算布局。
 
-    Args:
-        edges: List of (source, target) edges
-        weights: Optional edge weights
-        width: Canvas width
-        height: Canvas height
-        algorithm: Layout algorithm name
+    参数：
+        edges: (源, 目标) 边的列表
+        weights: 可选的边权重
+        width: 画布宽度
+        height: 画布高度
+        algorithm: 布局算法名称
 
-    Returns:
-        LayoutResult with positions
+    返回：
+        包含位置的 LayoutResult
     """
     if not HAS_NETWORKX:
         raise ImportError("networkx is not installed. Install with: pip install networkx")
@@ -514,18 +514,18 @@ def compute_agent_layout(
     algorithm: str = "force_directed",
 ) -> dict[int, tuple[float, float]]:
     """
-    Compute 2D layout for agents visualization.
+    计算代理可视化的2D布局。
 
-    Args:
-        agent_ids: List of agent IDs
-        follow_edges: Optional list of (follower, followee) edges
-        groups: Optional group assignment for agents
-        width: Canvas width
-        height: Canvas height
-        algorithm: Layout algorithm to use
+    参数：
+        agent_ids: 代理 ID 列表
+        follow_edges: 可选的（关注者, 被关注者）边列表
+        groups: 代理的可选组分配
+        width: 画布宽度
+        height: 画布高度
+        algorithm: 要使用的布局算法
 
-    Returns:
-        Dictionary mapping agent_id to (x, y) coordinates
+    返回：
+        将 agent_id 映射到 (x, y) 坐标的字典
     """
     if not agent_ids:
         return {}

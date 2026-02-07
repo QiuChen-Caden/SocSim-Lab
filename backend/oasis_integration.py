@@ -23,6 +23,17 @@ LOCAL_OASIS_PATH = PROJECT_ROOT / "oasis-main"
 LEGACY_OASIS_PATH = PROJECT_ROOT.parent / "oasis-main"
 OASIS_PATH = LOCAL_OASIS_PATH if LOCAL_OASIS_PATH.exists() else LEGACY_OASIS_PATH
 sys.path.insert(0, str(OASIS_PATH))
+
+def _resolve_project_path(raw_path: str) -> Path:
+    """Resolve relative paths against project root for portable deployments."""
+    path = Path(raw_path)
+    if path.is_absolute():
+        return path
+    return (PROJECT_ROOT / path).resolve()
+
+DEFAULT_RUNTIME_DB_PATH = _resolve_project_path(
+    os.environ.get("OASIS_RUNTIME_DB_PATH", "data/oasis_simulation.db")
+)
 DEEPSEEK_DEFAULT_KEY = "sk-5c79877413f346ceb7d4fdbf6daed4e6"
 
 # Type checking imports (not evaluated at runtime)
@@ -66,7 +77,7 @@ except ImportError as e:
 class OasisSimulation:
     """OASIS Simulation wrapper for FastAPI integration."""
 
-    def __init__(self, db_path: str = str(Path(__file__).resolve().parent.parent / "data" / "oasis_simulation.db")):
+    def __init__(self, db_path: str = str(DEFAULT_RUNTIME_DB_PATH)):
         self.db_path = db_path
         self.env: Optional[OasisEnv] = None
         self.agent_graph: Optional[AgentGraph] = None

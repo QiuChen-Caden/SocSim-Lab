@@ -56,7 +56,9 @@ def get_db_path() -> str:
     """Get the database file path."""
     env_db_path = os.environ.get("OASIS_DB_PATH")
     if env_db_path:
-        return env_db_path
+        if osp.isabs(env_db_path):
+            return env_db_path
+        return osp.normpath(osp.join(PROJECT_ROOT, env_db_path))
 
     os.makedirs(DB_DIR, exist_ok=True)
     db_path = osp.join(DB_DIR, DB_NAME)

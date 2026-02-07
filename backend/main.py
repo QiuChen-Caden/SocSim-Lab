@@ -10,6 +10,7 @@ import asyncio
 import re
 import math
 import sys
+import os
 import sqlite3
 from typing import Optional, List, Any
 from contextlib import asynccontextmanager
@@ -91,7 +92,18 @@ class Settings(BaseSettings):
 
 settings = Settings()
 DEFAULT_DEEPSEEK_KEY = "sk-5c79877413f346ceb7d4fdbf6daed4e6"
-OASIS_RUNTIME_DB_PATH = Path(__file__).resolve().parent.parent / "data" / "oasis_simulation.db"
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+def _resolve_project_path(raw_path: str) -> Path:
+    """Resolve relative paths against project root for portable deployments."""
+    path = Path(raw_path)
+    if path.is_absolute():
+        return path
+    return (PROJECT_ROOT / path).resolve()
+
+OASIS_RUNTIME_DB_PATH = _resolve_project_path(
+    os.environ.get("OASIS_RUNTIME_DB_PATH", "data/oasis_simulation.db")
+)
 
 # Import OASIS integration
 from oasis_integration import (
@@ -138,17 +150,17 @@ def _add_system_log(level: str, message: str, category: str = "system") -> None:
     level_icon = {"info": "", "ok": "✓", "error": "✗", "warn": "⚠"}.get(level, "")
     print(f"[{level.upper()}] {level_icon} {message}")
 
-def sys_info(msg: str) -> None:
-    _add_system_log("info", msg)
+def sys_info(msg: str, category: str = "system") -> None:
+    _add_system_log("info", msg, category=category)
 
-def sys_ok(msg: str) -> None:
-    _add_system_log("ok", msg)
+def sys_ok(msg: str, category: str = "system") -> None:
+    _add_system_log("ok", msg, category=category)
 
-def sys_error(msg: str) -> None:
-    _add_system_log("error", msg)
+def sys_error(msg: str, category: str = "system") -> None:
+    _add_system_log("error", msg, category=category)
 
-def sys_warn(msg: str) -> None:
-    _add_system_log("warn", msg)
+def sys_warn(msg: str, category: str = "system") -> None:
+    _add_system_log("warn", msg, category=category)
 
 
 # ============= Lifecycle Management =============
@@ -158,8 +170,10 @@ async def lifespan(app: FastAPI):
     """Application lifespan manager."""
     # Startup
     print(f"Starting {settings.app_name} v{settings.version}")
+    sys_info(f"Starting {settings.app_name} v{settings.version}", category="lifecycle")
     init_db()
     print("Database initialized")
+    sys_ok("Database initialized", category="lifecycle")
 
     # Load persisted simulation state early so OASIS can consume runtime config.
     global _sim_state
@@ -177,21 +191,26 @@ async def lifespan(app: FastAPI):
     oasis_initialized = False
     if settings.use_oasis and OASIS_AVAILABLE:
         print("Initializing OASIS simulation...")
+        sys_info("Initializing OASIS simulation...", category="oasis")
         oasis_initialized = await initialize_oasis_simulation(
             PERSONAS_PATH,
             runtime_config=_sim_state.config.to_dict(),
         )
         if oasis_initialized:
             print("OASIS simulation initialized successfully")
+            sys_ok("OASIS simulation initialized successfully", category="oasis")
         else:
             print("OASIS initialization failed, using fallback ticker")
+            sys_warn("OASIS initialization failed, using fallback ticker", category="oasis")
     else:
         print("OASIS not available, using fallback ticker")
+        sys_warn("OASIS not available, using fallback ticker", category="oasis")
 
     # Auto-start simulation: set is_running to True on startup
     _sim_state.is_running = True
     save_simulation_state(_sim_state)
     print(f"Simulation auto-started: tick={_sim_state.tick}, is_running={_sim_state.is_running}")
+    sys_ok(f"Simulation auto-started at tick={_sim_state.tick}", category="simulation")
 
     # Start simulation ticker (uses OASIS or fallback)
     ticker_task = asyncio.create_task(simulation_ticker())
@@ -203,6 +222,7 @@ async def lifespan(app: FastAPI):
     if oasis_initialized:
         await close_simulation()
     print(f"Shutting down {settings.app_name}")
+    sys_info(f"Shutting down {settings.app_name}", category="lifecycle")
 
 
 app = FastAPI(
@@ -1170,10 +1190,13 @@ async def patch_state(
 
     if isRunning is not None:
         state.is_running = isRunning
+        sys_info(f"State patch: isRunning={state.is_running}", category="simulation")
     if speed is not None:
         state.speed = max(0.1, min(10.0, speed))
+        sys_info(f"State patch: speed={state.speed}", category="simulation")
     if tick is not None:
         state.tick = max(0, tick)
+        sys_info(f"State patch: tick={state.tick}", category="simulation")
     if selectedAgentId is not None:
         state.selected_agent_id = selectedAgentId
     if config is not None:
@@ -1182,6 +1205,7 @@ async def patch_state(
         state.config = SimulationConfig.from_dict(merged_config)
         if settings.use_oasis and OASIS_AVAILABLE:
             await update_simulation_config(state.config.to_dict())
+        sys_ok("State patch: config updated", category="simulation")
 
     save_simulation_state(state)
     _sim_state = state
@@ -1210,6 +1234,7 @@ async def start_simulation(request: Optional[SimulationControlRequest] = None):
     save_simulation_state(_sim_state)
 
     await ws_manager.emit_tick_update(_sim_state.tick, _sim_state.is_running, _sim_state.speed)
+    sys_ok(f"Simulation started at tick={_sim_state.tick}, speed={_sim_state.speed}", category="simulation")
 
     return {"status": "started", "tick": _sim_state.tick}
 
@@ -1223,6 +1248,7 @@ async def stop_simulation():
     save_simulation_state(_sim_state)
 
     await ws_manager.emit_tick_update(_sim_state.tick, _sim_state.is_running, _sim_state.speed)
+    sys_warn(f"Simulation stopped at tick={_sim_state.tick}", category="simulation")
 
     return {"status": "stopped", "tick": _sim_state.tick}
 
@@ -1236,6 +1262,7 @@ async def pause_simulation():
     save_simulation_state(_sim_state)
 
     await ws_manager.emit_tick_update(_sim_state.tick, _sim_state.is_running, _sim_state.speed)
+    sys_info(f"Simulation paused at tick={_sim_state.tick}", category="simulation")
 
     return {"status": "paused", "tick": _sim_state.tick}
 
@@ -1249,6 +1276,7 @@ async def resume_simulation():
     save_simulation_state(_sim_state)
 
     await ws_manager.emit_tick_update(_sim_state.tick, _sim_state.is_running, _sim_state.speed)
+    sys_ok(f"Simulation resumed at tick={_sim_state.tick}", category="simulation")
 
     return {"status": "resumed", "tick": _sim_state.tick}
 
@@ -1262,6 +1290,7 @@ async def set_simulation_speed(speed: float = Body(..., embed=True)):
     save_simulation_state(_sim_state)
 
     await ws_manager.emit_tick_update(_sim_state.tick, _sim_state.is_running, _sim_state.speed)
+    sys_info(f"Simulation speed set to {_sim_state.speed}", category="simulation")
 
     return {"status": "ok", "speed": _sim_state.speed}
 
@@ -1275,6 +1304,7 @@ async def set_simulation_tick(tick: int = Body(..., embed=True)):
     save_simulation_state(_sim_state)
 
     await ws_manager.emit_tick_update(_sim_state.tick, _sim_state.is_running, _sim_state.speed)
+    sys_info(f"Simulation tick set to {_sim_state.tick}", category="simulation")
 
     return {"status": "ok", "tick": _sim_state.tick}
 

@@ -51,6 +51,16 @@ function makeEvent(input: { tick: number; type: any; title: string; agentId?: nu
   return { id: id('evt'), ...input }
 }
 
+// Helper function to limit Set size to prevent memory leaks
+function limitSetSize<T>(set: Set<T>, maxSize: number): void {
+  if (set.size <= maxSize) return
+  const entries = Array.from(set)
+  const toRemove = entries.slice(0, set.size - maxSize)
+  for (const entry of toRemove) {
+    set.delete(entry)
+  }
+}
+
 export function SimulationProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, undefined, initialState)
   const hydratedRef = useRef(false)
@@ -109,6 +119,8 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
           .forEach((iv) => {
             if (seenInterventionIdsRef.current.has(iv.id)) return
             seenInterventionIdsRef.current.add(iv.id)
+            // Prevent unbounded Set growth
+            limitSetSize(seenInterventionIdsRef.current, 1000)
             dispatch({
               type: 'apply_intervention',
               tick: iv.tick,
@@ -123,6 +135,8 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
           .forEach((post) => {
             if (seenFeedIdsRef.current.has(post.id)) return
             seenFeedIdsRef.current.add(post.id)
+            // Prevent unbounded Set growth
+            limitSetSize(seenFeedIdsRef.current, 5000)
             dispatch({
               type: 'push_feed',
               tick: post.tick,
@@ -142,6 +156,8 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
             const eventId = event.id || id('evt')
             if (seenEventIdsRef.current.has(eventId)) return
             seenEventIdsRef.current.add(eventId)
+            // Prevent unbounded Set growth
+            limitSetSize(seenEventIdsRef.current, 3000)
             dispatch({ type: 'push_event', event: { ...event, id: eventId } })
           })
 
@@ -151,6 +167,8 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
           .forEach((log) => {
             if (seenLogIdsRef.current.has(log.id)) return
             seenLogIdsRef.current.add(log.id)
+            // Prevent unbounded Set growth
+            limitSetSize(seenLogIdsRef.current, 5000)
             dispatch({ type: 'push_log', level: log.level, tick: log.tick, agentId: log.agentId, text: log.text })
           })
 
@@ -160,6 +178,8 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
           .forEach((sysLog) => {
             if (seenSystemLogIdsRef.current.has(sysLog.id)) return
             seenSystemLogIdsRef.current.add(sysLog.id)
+            // Prevent unbounded Set growth
+            limitSetSize(seenSystemLogIdsRef.current, 500)
             dispatch({ type: 'push_system_log', log: sysLog })
           })
 
@@ -190,6 +210,8 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
           .forEach((post) => {
             if (seenFeedIdsRef.current.has(post.id)) return
             seenFeedIdsRef.current.add(post.id)
+            // Prevent unbounded Set growth
+            limitSetSize(seenFeedIdsRef.current, 5000)
             dispatch({
               type: 'push_feed',
               tick: post.tick,
@@ -209,6 +231,8 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
             const eventId = event.id || id('evt')
             if (seenEventIdsRef.current.has(eventId)) return
             seenEventIdsRef.current.add(eventId)
+            // Prevent unbounded Set growth
+            limitSetSize(seenEventIdsRef.current, 3000)
             dispatch({ type: 'push_event', event: { ...event, id: eventId } })
           })
 
@@ -218,6 +242,8 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
           .forEach((log) => {
             if (seenLogIdsRef.current.has(log.id)) return
             seenLogIdsRef.current.add(log.id)
+            // Prevent unbounded Set growth
+            limitSetSize(seenLogIdsRef.current, 5000)
             dispatch({ type: 'push_log', level: log.level, tick: log.tick, agentId: log.agentId, text: log.text })
           })
       } catch (err) {
@@ -247,6 +273,8 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
       } else if (message.type === 'post_created') {
         if (seenFeedIdsRef.current.has(message.post.id)) return
         seenFeedIdsRef.current.add(message.post.id)
+        // Prevent unbounded Set growth
+        limitSetSize(seenFeedIdsRef.current, 5000)
         dispatch({
           type: 'push_feed',
           tick: message.post.tick,
@@ -261,14 +289,20 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
         const eventId = message.event.id || id('evt')
         if (seenEventIdsRef.current.has(eventId)) return
         seenEventIdsRef.current.add(eventId)
+        // Prevent unbounded Set growth
+        limitSetSize(seenEventIdsRef.current, 3000)
         dispatch({ type: 'push_event', event: { ...message.event, id: eventId } })
       } else if (message.type === 'log_added') {
         if (seenLogIdsRef.current.has(message.log.id)) return
         seenLogIdsRef.current.add(message.log.id)
+        // Prevent unbounded Set growth
+        limitSetSize(seenLogIdsRef.current, 5000)
         dispatch({ type: 'push_log', level: message.log.level, tick: message.log.tick, agentId: message.log.agentId, text: message.log.text })
       } else if (message.type === 'system_log') {
         if (seenSystemLogIdsRef.current.has(message.log.id)) return
         seenSystemLogIdsRef.current.add(message.log.id)
+        // Prevent unbounded Set growth
+        limitSetSize(seenSystemLogIdsRef.current, 500)
         dispatch({ type: 'push_system_log', log: message.log })
       } else if (message.type === 'simulation_state') {
         dispatch({ type: 'set_tick', tick: message.state.tick })
@@ -288,10 +322,22 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
     })
 
     return () => {
+      // Clear intervals
       window.clearInterval(retryTimer)
       window.clearInterval(streamSyncTimer)
+
+      // Cleanup WebSocket listener
       unsubscribe()
+
+      // Disconnect WebSocket
       wsClient.disconnect()
+
+      // Clear Sets to prevent memory leaks
+      seenFeedIdsRef.current.clear()
+      seenEventIdsRef.current.clear()
+      seenLogIdsRef.current.clear()
+      seenInterventionIdsRef.current.clear()
+      seenSystemLogIdsRef.current.clear()
     }
   }, [])
 
@@ -400,7 +446,7 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
       deleteSnapshot: (snapshotId) => dispatch({ type: 'delete_snapshot', snapshotId }),
       clearSnapshots: () => dispatch({ type: 'clear_snapshots' }),
     }
-  }, [state.tick, state.isRunning])
+  }, [state])
 
   const value = useMemo<SimContextValue>(() => ({ state, dispatch, actions }), [actions, state])
 

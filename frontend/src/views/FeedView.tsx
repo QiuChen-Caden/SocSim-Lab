@@ -132,7 +132,7 @@ export function FeedView() {
     return stream.filter((item) => item.kind === streamFilter)
   }, [stream, streamFilter])
 
-  // 计算每个 tick 的信息量
+  // 计算每个 tick 的信息量 - Optimized with pre-computed maps
   const activityChartOption = useMemo(() => {
     const maxTick = sim.state.tick || 1
     const tickData: number[] = []
@@ -142,14 +142,41 @@ export function FeedView() {
     const totalData: number[] = []
     const activeAgentsData: number[] = []
 
-    // 统计每个 tick 的信息量
+    // Pre-compute tick-based maps for O(1) lookups instead of O(n) filters
+    const feedByTick = new Map<number, typeof sim.state.feed>()
+    const eventsByTick = new Map<number, typeof sim.state.events>()
+    const logsByTick = new Map<number, typeof sim.state.logs>()
+
+    // Build lookup maps
+    for (const post of sim.state.feed) {
+      if (!feedByTick.has(post.tick)) {
+        feedByTick.set(post.tick, [])
+      }
+      feedByTick.get(post.tick)!.push(post)
+    }
+
+    for (const event of sim.state.events) {
+      if (!eventsByTick.has(event.tick)) {
+        eventsByTick.set(event.tick, [])
+      }
+      eventsByTick.get(event.tick)!.push(event)
+    }
+
+    for (const log of sim.state.logs) {
+      if (!logsByTick.has(log.tick)) {
+        logsByTick.set(log.tick, [])
+      }
+      logsByTick.get(log.tick)!.push(log)
+    }
+
+    // 统计每个 tick 的信息量 using O(1) lookups
     for (let t = 0; t <= maxTick; t++) {
       tickData.push(t)
 
-      const postsAtTick = sim.state.feed.filter(p => p.tick === t)
+      const postsAtTick = feedByTick.get(t) ?? []
       const postCount = postsAtTick.length
-      const eventCount = sim.state.events.filter(e => e.tick === t).length
-      const logCount = sim.state.logs.filter(l => l.tick === t).length
+      const eventCount = (eventsByTick.get(t) ?? []).length
+      const logCount = (logsByTick.get(t) ?? []).length
       const total = postCount + eventCount + logCount
 
       // 统计活跃 agents（该 tick 有发帖的 agents）

@@ -3,6 +3,7 @@ import ReactECharts from 'echarts-for-react'
 import type { EChartsOption } from 'echarts'
 import type { AgentGraph } from '../app/agentGraph'
 import { clamp } from '../app/util'
+import * as React from 'react'
 
 type AgentGraphProps = {
   graph: AgentGraph
@@ -141,7 +142,7 @@ export function AgentGraphCanvas({
             return `link: ${params.data.source} -> ${params.data.target}`
           }
           const node = params.data
-          const groupName = categories[node.category]?.name ?? 'unknown'
+          const groupName = categories[node.category ?? 0]?.name ?? 'unknown'
           const mood = typeof node.mood === 'number' ? node.mood.toFixed(2) : '-'
           const stance = typeof node.stance === 'number' ? node.stance.toFixed(2) : '-'
           return [
@@ -212,13 +213,13 @@ export function AgentGraphCanvas({
         opts={{ renderer: 'canvas' }}
         notMerge
         onEvents={{
-          click: (params: any) => {
+          click: (params: { dataType?: string; data?: { id?: number; value?: number } }) => {
             if (params?.dataType !== 'node' || !onSelectAgent) return
             const rawId = params.data?.id ?? params.data?.value
             const agentId = Number(rawId)
             if (Number.isFinite(agentId)) onSelectAgent(agentId)
           },
-          graphRoam: (params: any) => {
+          graphRoam: (params: { zoom?: number }) => {
             if (typeof params?.zoom !== 'number') return
             const nextScale = clamp(params.zoom, 0.5, 2.0)
             setLocalScale(nextScale)
@@ -299,3 +300,7 @@ export function AgentGraphCanvas({
     </div>
   )
 }
+
+// Memoize component to prevent unnecessary re-renders
+export const AgentGraphCanvasMemoized = React.memo(AgentGraphCanvas)
+

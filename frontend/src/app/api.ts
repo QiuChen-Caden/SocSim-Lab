@@ -701,7 +701,14 @@ export class WebSocketClient {
 
     this.ws.onmessage = (event) => {
       try {
+        // Validate and parse JSON message safely
         const message = JSON.parse(event.data) as WebSocketMessage;
+
+        // Validate message structure before processing
+        if (!message || typeof message !== 'object' || !('type' in message)) {
+          console.warn('[WebSocket] Received invalid message format:', event.data);
+          return;
+        }
 
         if (message.type === 'connected') {
           this.clientId = message.clientId;
@@ -716,7 +723,7 @@ export class WebSocketClient {
           }
         });
       } catch (error) {
-        console.error('[WebSocket] 解析消息失败:', error);
+        console.error('[WebSocket] Failed to parse message:', error, 'Data:', event.data);
       }
     };
 
@@ -749,8 +756,16 @@ export class WebSocketClient {
 
   disconnect() {
     this.isIntentionalClose = true;
+
+    // Clear all event listeners to prevent memory leaks
+    this.listeners.clear();
+
+    // Clear message queue
+    this.messageQueue = [];
+
     if (this.ws) {
       this.ws.close();
+      this.ws = null;
     }
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
@@ -762,8 +777,8 @@ export class WebSocketClient {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(message));
     } else {
-      // 将消息排队等待连接建立
-      this.messageQueue.push(message as WebSocketMessage);
+      // 将消息排队等待连接建立 - use type assertion for internal queue management
+      this.messageQueue.push(message as unknown as WebSocketMessage);
       // 如果未连接则触发连接
       if (!this.ws) {
         this.connect();
@@ -793,9 +808,12 @@ export class WebSocketClient {
     });
   }
 
-  onMessage(listener: WebSocketEventListener) {
+  onMessage(listener: WebSocketEventListener): () => void {
     this.listeners.add(listener);
-    return () => this.listeners.delete(listener);
+    // Return unsubscribe function for proper cleanup
+    return () => {
+      this.listeners.delete(listener);
+    };
   }
 
   ping() {

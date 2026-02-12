@@ -33,11 +33,13 @@ export type Action =
   | { type: 'push_system_log'; log: SimulationState['systemLogs'][number] }
   | { type: 'set_system_logs'; logs: SimulationState['systemLogs'] }
 
-const MAX_LOGS = 4000
-const MAX_EVENTS = 2500
-const MAX_FEED = 2000
-const MAX_INTERVENTIONS = 120
-const MAX_SYSTEM_LOGS = 500
+// Maximum collection sizes to prevent memory issues
+// These limits balance memory usage with data retention for debugging/analysis
+const MAX_LOGS = 4000        // Maximum agent log entries to keep
+const MAX_EVENTS = 2500       // Maximum timeline events to keep
+const MAX_FEED = 2000         // Maximum feed posts to keep
+const MAX_INTERVENTIONS = 120   // Maximum intervention records to keep
+const MAX_SYSTEM_LOGS = 500    // Maximum system log entries to keep
 
 function makeEvidence(agentId: number, tick: number) {
   const mem = Array.from({ length: 4 }).map((_, i) => {

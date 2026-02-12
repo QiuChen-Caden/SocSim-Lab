@@ -3,6 +3,12 @@ import { useSim } from '../app/SimulationProvider'
 import { clamp } from '../app/util'
 import ReactECharts from 'echarts-for-react'
 
+// Type for ECharts axis pointer formatter parameters
+type EChartsAxisPointerParams = Array<{
+  dataIndex: number
+  data: unknown
+}>
+
 // 获取当前主题的图表颜色配置
 function getChartColors() {
   const isDark = document.documentElement.getAttribute('data-theme') !== 'light'
@@ -2290,7 +2296,7 @@ function TickTimeChart() {
       tooltip: {
         trigger: 'axis',
         axisPointer: { type: 'cross' },
-        formatter: (params: any) => {
+        formatter: (params: EChartsAxisPointerParams) => {
           const p = params[0]
           const d = data[p.dataIndex]
           return `tick: ${d.tick}<br/>时间: ${d.displayTime}<br/>已运行: ${timeData[p.dataIndex]}s`

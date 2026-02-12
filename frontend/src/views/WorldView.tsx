@@ -3,7 +3,7 @@ import { useSim } from '../app/SimulationProvider'
 import { buildEgoAgentGraph, buildSampleAgentGraph } from '../app/agentGraph'
 import api from '../app/api'
 import { clamp } from '../app/util'
-import { AgentGraphCanvas } from '../components/AgentGraph'
+import { AgentGraphCanvasMemoized } from '../components/AgentGraph'
 import { ErrorBoundary } from '../components/ErrorBoundary'
 import { PixiWorld } from '../components/PixiWorld'
 
@@ -114,11 +114,11 @@ export function WorldView() {
               <span className="pill">mode: {graphMode}</span>
             </div>
             <div className="panel__bd" style={{ padding: 10 }}>
-              <AgentGraphCanvas
+              <AgentGraphCanvasMemoized
                 graph={agentGraph}
                 focusId={selected ?? 42}
                 nodeMetaById={graphNodeMeta}
-                onSelectAgent={(id) => sim.actions.selectAgent(id)}
+                onSelectAgent={(id: number) => sim.actions.selectAgent(id)}
               />
               <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>
                 click node to select · 说明：图谱为演示用，从采样中抽取最多 140 个节点，并生成确定性的 mock 连接。
@@ -207,7 +207,7 @@ export function WorldView() {
                   <select
                     className="select"
                     value={sim.state.config.viewportMode}
-                    onChange={(e) => sim.actions.setConfig({ viewportMode: e.target.value as any })}
+                    onChange={(e) => sim.actions.setConfig({ viewportMode: e.target.value as 'micro' | 'macro' })}
                   >
                     <option value="micro">micro 微观 (sprites)</option>
                     <option value="macro">macro 宏观 (bins)</option>

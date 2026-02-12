@@ -20,9 +20,10 @@ from pathlib import Path
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Query, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
+import logging
 
 from models import (
     init_db,
@@ -81,15 +82,14 @@ if hasattr(sys.stderr, "reconfigure"):
 
 class Settings(BaseSettings):
     """应用程序设置。"""
+    model_config = ConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
     app_name: str = "OASIS Frontend Backend"
     version: str = "0.1.0"
     debug: bool = True
-    cors_origins: List[str] = ["http://localhost:5173", "http://localhost:5174", "http://localhost:5175", "http://localhost:3000"]
+    cors_origins: List[str] = ["http://localhost:5173", "http://localhost:5174", "http://localhost:5175", "http://localhost:5176", "http://localhost:3000"]
     use_oasis: bool = True  # 启用 OASIS 仿真
-
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+    log_file: str = "C:\\Users\\Lenovo\\Desktop\\SocSim-Lab\\backend_launch_check.err.log"  # 固定日志路径
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -101,6 +101,36 @@ load_dotenv(_backend_env, override=False)
 load_dotenv(_root_env, override=False)
 
 settings = Settings()
+
+# ============= Logging Configuration =============
+# Configure logging to write to fixed file path
+_log_file_path = Path(settings.log_file)
+_log_file_path.parent.mkdir(parents=True, exist_ok=True)
+
+# Create custom formatter
+formatter = logging.Formatter(
+    '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+
+# File handler - writes to fixed path
+file_handler = logging.FileHandler(_log_file_path, encoding='utf-8')
+file_handler.setLevel(logging.INFO)
+file_handler.setFormatter(formatter)
+
+# Console handler - for immediate visibility
+console_handler = logging.StreamHandler(sys.stdout)
+console_handler.setLevel(logging.INFO)
+console_handler.setFormatter(formatter)
+
+# Configure root logger
+logging.root.setLevel(logging.INFO)
+logging.root.addHandler(file_handler)
+logging.root.addHandler(console_handler)
+
+# Redirect warnings to log file
+logging.captureWarnings(True)
+
 DEFAULT_LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "deepseek")
 DEFAULT_LLM_MODEL = os.environ.get("LLM_MODEL", "deepseek-chat")
 DEFAULT_LLM_BASE_URL = os.environ.get("LLM_BASE_URL", "https://api.deepseek.com/v1")
@@ -1883,10 +1913,52 @@ async def general_exception_handler(request, exc):
 if __name__ == "__main__":
     import uvicorn
 
+    # Uvicorn logging configuration
+    log_config = {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "formatters": {
+            "default": {
+                "()": "uvicorn.logging.DefaultFormatter",
+                "fmt": "%(levelprefix)s %(asctime)s %(name)s - %(message)s",
+                "datefmt": "%Y-%m-%d %H:%M:%S",
+            },
+            "access": {
+                "()": "uvicorn.logging.AccessFormatter",
+                "fmt": '%(levelprefix)s %(asctime)s %(client_addr)s - "%(request_line)s" %(status_code)s',
+                "datefmt": "%Y-%m-%d %H:%M:%S",
+            },
+        },
+        "handlers": {
+            "default": {
+                "formatter": "default",
+                "class": "logging.FileHandler",
+                "filename": str(_log_file_path),
+                "encoding": "utf-8",
+            },
+            "access": {
+                "formatter": "access",
+                "class": "logging.FileHandler",
+                "filename": str(_log_file_path),
+                "encoding": "utf-8",
+            },
+        },
+        "loggers": {
+            "uvicorn": {"handlers": ["default"], "level": "INFO"},
+            "uvicorn.error": {"handlers": ["default"], "level": "INFO"},
+            "uvicorn.access": {"handlers": ["access"], "level": "INFO", "propagate": False},
+        },
+    }
+
+    print(f"Starting {settings.app_name} v{settings.version}")
+    print(f"Logging to: {_log_file_path}")
+
     uvicorn.run(
         "main:app",
         host="127.0.0.1",
         port=8000,
         reload=False,
         log_level="info",
+        log_config=log_config,
+        access_log=True,
     )

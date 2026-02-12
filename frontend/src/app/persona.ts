@@ -17,8 +17,9 @@ import type {
   DiurnalPattern,
   Sentiment,
   SocialStratum,
-} from './types'
-import { agentGroup, clamp, hash01 } from './util'
+} from '../types'
+import { agentGroup } from './util'
+import { clamp, hash01 } from '../utils'
 
 // ============= 常量 Constants =============
 

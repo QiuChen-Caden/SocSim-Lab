@@ -1,84 +1,76 @@
-import { createContext, useContext, useMemo, useReducer, useEffect, useRef } from 'react'
-import type { ReactNode } from 'react'
-import type { AgentState, SimulationState } from './types'
-import { initialState, reducer } from './state'
-import type { Action } from './state'
-import { clamp, id } from './util'
-import api, { wsClient } from './api'
+import { createContext, useContext, useMemo, useReducer, useEffect, useRef } from 'react';
+import type { ReactNode } from 'react';
+import type { SimulationState, Action, TimelineEvent, AgentState } from '../types';
+import { initialState, reducer } from './state';
+import { id, limitSetSize } from '../utils';
+import api, { wsClient } from '../api';
 
-const USE_REAL_API = import.meta.env.VITE_USE_REAL_API === 'true'
+const USE_REAL_API = import.meta.env.VITE_USE_REAL_API === 'true';
+const USE_WEBSOCKET = import.meta.env.VITE_USE_WEBSOCKET !== 'false';
+
 const HYDRATE_LIMITS = {
   interventions: 80,
   feed: 160,
   events: 180,
   logs: 220,
-}
+};
+
 const STREAM_LIMITS = {
   feed: 40,
   events: 50,
   logs: 80,
-}
+};
 
 type SimActions = {
-  toggleRun: () => void
-  setSpeed: (speed: number) => void
-  setTick: (tick: number) => void
-  selectAgent: (agentId: number | null) => void
-  logInfo: (text: string, agentId?: number) => void
-  logOk: (text: string, agentId?: number) => void
-  logError: (text: string, agentId?: number) => void
-  pushEvent: (event: { tick: number; type: any; title: string; agentId?: number; payload?: Record<string, unknown> }) => void
-  pushFeed: (authorId: number, content: string, emotion: number) => void
-  applyIntervention: (command: string, targetAgentId?: number) => Promise<boolean>
-  setConfig: (patch: Partial<SimulationState['config']>) => void
-  patchAgent: (agentId: number, patch: Partial<AgentState>) => void
-  regeneratePersonas: () => void
-  createSnapshot: () => void
-  loadSnapshot: (snapshotId: string) => void
-  deleteSnapshot: (snapshotId: string) => void
-  clearSnapshots: () => void
-}
+  toggleRun: () => void;
+  setSpeed: (speed: number) => void;
+  setTick: (tick: number) => void;
+  selectAgent: (agentId: number | null) => void;
+  logInfo: (text: string, agentId?: number) => void;
+  logOk: (text: string, agentId?: number) => void;
+  logError: (text: string, agentId?: number) => void;
+  pushEvent: (event: { tick: number; type: string; title: string; agentId?: number; payload?: Record<string, unknown> }) => void;
+  pushFeed: (authorId: number, content: string, emotion: number) => void;
+  applyIntervention: (command: string, targetAgentId?: number) => Promise<boolean>;
+  setConfig: (patch: Partial<SimulationState['config']>) => void;
+  patchAgent: (agentId: number, patch: Partial<AgentState>) => void;
+  regeneratePersonas: () => void;
+  createSnapshot: () => void;
+  loadSnapshot: (snapshotId: string) => void;
+  deleteSnapshot: (snapshotId: string) => void;
+  clearSnapshots: () => void;
+};
 
 type SimContextValue = {
-  state: SimulationState
-  dispatch: (action: Action) => void
-  actions: SimActions
-}
+  state: SimulationState;
+  dispatch: (action: Action) => void;
+  actions: SimActions;
+};
 
-const SimContext = createContext<SimContextValue | null>(null)
+const SimContext = createContext<SimContextValue | null>(null);
 
-function makeEvent(input: { tick: number; type: any; title: string; agentId?: number; payload?: Record<string, unknown> }) {
-  return { id: id('evt'), ...input }
-}
-
-// Helper function to limit Set size to prevent memory leaks
-function limitSetSize<T>(set: Set<T>, maxSize: number): void {
-  if (set.size <= maxSize) return
-  const entries = Array.from(set)
-  const toRemove = entries.slice(0, set.size - maxSize)
-  for (const entry of toRemove) {
-    set.delete(entry)
-  }
+function makeEvent(input: { tick: number; type: string; title: string; agentId?: number; payload?: Record<string, unknown> }): TimelineEvent {
+  return { id: id('evt'), ...input } as TimelineEvent;
 }
 
 export function SimulationProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(reducer, undefined, initialState)
-  const hydratedRef = useRef(false)
-  const hydrateInFlightRef = useRef(false)
-  const configPatchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const pendingConfigPatchRef = useRef<Partial<SimulationState['config']>>({})
-  const seenFeedIdsRef = useRef<Set<string>>(new Set())
-  const seenEventIdsRef = useRef<Set<string>>(new Set())
-  const seenLogIdsRef = useRef<Set<string>>(new Set())
-  const seenInterventionIdsRef = useRef<Set<string>>(new Set())
-  const seenSystemLogIdsRef = useRef<Set<string>>(new Set())
+  const [state, dispatch] = useReducer(reducer, undefined, initialState);
+  const hydratedRef = useRef(false);
+  const hydrateInFlightRef = useRef(false);
+  const configPatchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingConfigPatchRef = useRef<Partial<SimulationState['config']>>({});
+  const seenFeedIdsRef = useRef<Set<string>>(new Set());
+  const seenEventIdsRef = useRef<Set<string>>(new Set());
+  const seenLogIdsRef = useRef<Set<string>>(new Set());
+  const seenInterventionIdsRef = useRef<Set<string>>(new Set());
+  const seenSystemLogIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    if (!USE_REAL_API) return
+    if (!USE_REAL_API) return;
 
     const hydrateFromBackend = async () => {
-      if (hydrateInFlightRef.current || hydratedRef.current) return
-      hydrateInFlightRef.current = true
+      if (hydrateInFlightRef.current || hydratedRef.current) return;
+      hydrateInFlightRef.current = true;
 
       try {
         const [agents, backendState, interventions, posts, events, logs, systemLogs] = await Promise.all([
@@ -89,7 +81,7 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
           api.events.getAll({ limit: HYDRATE_LIMITS.events }),
           api.logs.getAll({ limit: HYDRATE_LIMITS.logs }),
           api.systemLogs.getAll({ limit: 500 }),
-        ])
+        ]);
 
         for (const agent of agents) {
           dispatch({
@@ -102,41 +94,39 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
               lastAction: 'idle',
               evidence: { memoryHits: [], reasoningSummary: '', toolCalls: [] },
             },
-          })
+          });
         }
 
-        dispatch({ type: 'set_tick', tick: backendState.tick })
-        dispatch({ type: 'set_running', isRunning: backendState.isRunning })
-        dispatch({ type: 'set_speed', speed: backendState.speed })
-        dispatch({ type: 'set_config', patch: backendState.config })
+        dispatch({ type: 'set_tick', tick: backendState.tick });
+        dispatch({ type: 'set_running', isRunning: backendState.isRunning });
+        dispatch({ type: 'set_speed', speed: backendState.speed });
+        dispatch({ type: 'set_config', patch: backendState.config });
         if (backendState.selectedAgentId !== null) {
-          dispatch({ type: 'set_selected_agent', agentId: backendState.selectedAgentId })
+          dispatch({ type: 'set_selected_agent', agentId: backendState.selectedAgentId });
         }
 
         interventions
           .slice()
           .reverse()
           .forEach((iv) => {
-            if (seenInterventionIdsRef.current.has(iv.id)) return
-            seenInterventionIdsRef.current.add(iv.id)
-            // Prevent unbounded Set growth
-            limitSetSize(seenInterventionIdsRef.current, 1000)
+            if (seenInterventionIdsRef.current.has(iv.id)) return;
+            seenInterventionIdsRef.current.add(iv.id);
+            limitSetSize(seenInterventionIdsRef.current, 1000);
             dispatch({
               type: 'apply_intervention',
               tick: iv.tick,
               command: iv.command,
               targetAgentId: iv.targetAgentId,
-            })
-          })
+            });
+          });
 
         posts
           .slice()
           .reverse()
           .forEach((post) => {
-            if (seenFeedIdsRef.current.has(post.id)) return
-            seenFeedIdsRef.current.add(post.id)
-            // Prevent unbounded Set growth
-            limitSetSize(seenFeedIdsRef.current, 5000)
+            if (seenFeedIdsRef.current.has(post.id)) return;
+            seenFeedIdsRef.current.add(post.id);
+            limitSetSize(seenFeedIdsRef.current, 5000);
             dispatch({
               type: 'push_feed',
               tick: post.tick,
@@ -146,72 +136,68 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
               emotion: post.emotion,
               likes: post.likes,
               postId: post.id,
-            })
-          })
+            });
+          });
 
         events
           .slice()
           .reverse()
           .forEach((event) => {
-            const eventId = event.id || id('evt')
-            if (seenEventIdsRef.current.has(eventId)) return
-            seenEventIdsRef.current.add(eventId)
-            // Prevent unbounded Set growth
-            limitSetSize(seenEventIdsRef.current, 3000)
-            dispatch({ type: 'push_event', event: { ...event, id: eventId } })
-          })
+            const eventId = event.id || id('evt');
+            if (seenEventIdsRef.current.has(eventId)) return;
+            seenEventIdsRef.current.add(eventId);
+            limitSetSize(seenEventIdsRef.current, 3000);
+            dispatch({ type: 'push_event', event: { ...event, id: eventId } });
+          });
 
         logs
           .slice()
           .reverse()
           .forEach((log) => {
-            if (seenLogIdsRef.current.has(log.id)) return
-            seenLogIdsRef.current.add(log.id)
-            // Prevent unbounded Set growth
-            limitSetSize(seenLogIdsRef.current, 5000)
-            dispatch({ type: 'push_log', level: log.level, tick: log.tick, agentId: log.agentId, text: log.text })
-          })
+            if (seenLogIdsRef.current.has(log.id)) return;
+            seenLogIdsRef.current.add(log.id);
+            limitSetSize(seenLogIdsRef.current, 5000);
+            dispatch({ type: 'push_log', level: log.level, tick: log.tick, agentId: log.agentId, text: log.text });
+          });
 
         systemLogs
           .slice()
           .reverse()
           .forEach((sysLog) => {
-            if (seenSystemLogIdsRef.current.has(sysLog.id)) return
-            seenSystemLogIdsRef.current.add(sysLog.id)
-            // Prevent unbounded Set growth
-            limitSetSize(seenSystemLogIdsRef.current, 500)
-            dispatch({ type: 'push_system_log', log: sysLog })
-          })
+            if (seenSystemLogIdsRef.current.has(sysLog.id)) return;
+            seenSystemLogIdsRef.current.add(sysLog.id);
+            limitSetSize(seenSystemLogIdsRef.current, 500);
+            dispatch({ type: 'push_system_log', log: sysLog });
+          });
 
-        hydratedRef.current = true
+        hydratedRef.current = true;
       } catch (err) {
-        console.error('[SimulationProvider] Backend hydrate failed, will retry:', err)
+        console.error('[SimulationProvider] Backend hydrate failed, will retry:', err);
       } finally {
-        hydrateInFlightRef.current = false
+        hydrateInFlightRef.current = false;
       }
-    }
+    };
 
     const syncStreamFromBackend = async () => {
-      if (!hydratedRef.current) return
+      if (!hydratedRef.current) return;
       try {
-        const backendState = await api.state.get()
-        dispatch({ type: 'set_tick', tick: backendState.tick })
-        dispatch({ type: 'set_running', isRunning: backendState.isRunning })
-        dispatch({ type: 'set_speed', speed: backendState.speed })
+        const backendState = await api.state.get();
+        dispatch({ type: 'set_tick', tick: backendState.tick });
+        dispatch({ type: 'set_running', isRunning: backendState.isRunning });
+        dispatch({ type: 'set_speed', speed: backendState.speed });
         const [posts, events, logs] = await Promise.all([
           api.feed.getAll({ limit: STREAM_LIMITS.feed }),
           api.events.getAll({ limit: STREAM_LIMITS.events }),
           api.logs.getAll({ limit: STREAM_LIMITS.logs }),
-        ])
+        ]);
 
         posts
           .slice()
           .reverse()
           .forEach((post) => {
-            if (seenFeedIdsRef.current.has(post.id)) return
-            seenFeedIdsRef.current.add(post.id)
-            // Prevent unbounded Set growth
-            limitSetSize(seenFeedIdsRef.current, 5000)
+            if (seenFeedIdsRef.current.has(post.id)) return;
+            seenFeedIdsRef.current.add(post.id);
+            limitSetSize(seenFeedIdsRef.current, 5000);
             dispatch({
               type: 'push_feed',
               tick: post.tick,
@@ -221,170 +207,165 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
               emotion: post.emotion,
               likes: post.likes,
               postId: post.id,
-            })
-          })
+            });
+          });
 
         events
           .slice()
           .reverse()
           .forEach((event) => {
-            const eventId = event.id || id('evt')
-            if (seenEventIdsRef.current.has(eventId)) return
-            seenEventIdsRef.current.add(eventId)
-            // Prevent unbounded Set growth
-            limitSetSize(seenEventIdsRef.current, 3000)
-            dispatch({ type: 'push_event', event: { ...event, id: eventId } })
-          })
+            const eventId = event.id || id('evt');
+            if (seenEventIdsRef.current.has(eventId)) return;
+            seenEventIdsRef.current.add(eventId);
+            limitSetSize(seenEventIdsRef.current, 3000);
+            dispatch({ type: 'push_event', event: { ...event, id: eventId } });
+          });
 
         logs
           .slice()
           .reverse()
           .forEach((log) => {
-            if (seenLogIdsRef.current.has(log.id)) return
-            seenLogIdsRef.current.add(log.id)
-            // Prevent unbounded Set growth
-            limitSetSize(seenLogIdsRef.current, 5000)
-            dispatch({ type: 'push_log', level: log.level, tick: log.tick, agentId: log.agentId, text: log.text })
-          })
+            if (seenLogIdsRef.current.has(log.id)) return;
+            seenLogIdsRef.current.add(log.id);
+            limitSetSize(seenLogIdsRef.current, 5000);
+            dispatch({ type: 'push_log', level: log.level, tick: log.tick, agentId: log.agentId, text: log.text });
+          });
       } catch (err) {
-        console.warn('[SimulationProvider] Stream sync failed:', err)
+        console.warn('[SimulationProvider] Stream sync failed:', err);
       }
-    }
+    };
 
-    hydrateFromBackend()
+    hydrateFromBackend();
 
     const retryTimer = window.setInterval(() => {
       if (!hydratedRef.current) {
-        hydrateFromBackend()
+        hydrateFromBackend();
       }
-    }, 3000)
+    }, 3000);
     const streamSyncTimer = window.setInterval(() => {
-      syncStreamFromBackend()
-    }, 1000)
+      syncStreamFromBackend();
+    }, 1000);
 
-    wsClient.connect()
-    wsClient.subscribe({ eventTypes: ['tick', 'post', 'event', 'log', 'state', 'system_log'] })
+    let unsubscribe: (() => void) | null = null;
 
-    const unsubscribe = wsClient.onMessage((message) => {
-      if (message.type === 'tick_update') {
-        dispatch({ type: 'set_tick', tick: message.tick })
-        dispatch({ type: 'set_running', isRunning: message.isRunning })
-        dispatch({ type: 'set_speed', speed: message.speed })
-      } else if (message.type === 'post_created') {
-        if (seenFeedIdsRef.current.has(message.post.id)) return
-        seenFeedIdsRef.current.add(message.post.id)
-        // Prevent unbounded Set growth
-        limitSetSize(seenFeedIdsRef.current, 5000)
-        dispatch({
-          type: 'push_feed',
-          tick: message.post.tick,
-          authorId: message.post.authorId,
-          authorName: message.post.authorName,
-          content: message.post.content,
-          emotion: message.post.emotion,
-          likes: message.post.likes,
-          postId: message.post.id,
-        })
-      } else if (message.type === 'event_created') {
-        const eventId = message.event.id || id('evt')
-        if (seenEventIdsRef.current.has(eventId)) return
-        seenEventIdsRef.current.add(eventId)
-        // Prevent unbounded Set growth
-        limitSetSize(seenEventIdsRef.current, 3000)
-        dispatch({ type: 'push_event', event: { ...message.event, id: eventId } })
-      } else if (message.type === 'log_added') {
-        if (seenLogIdsRef.current.has(message.log.id)) return
-        seenLogIdsRef.current.add(message.log.id)
-        // Prevent unbounded Set growth
-        limitSetSize(seenLogIdsRef.current, 5000)
-        dispatch({ type: 'push_log', level: message.log.level, tick: message.log.tick, agentId: message.log.agentId, text: message.log.text })
-      } else if (message.type === 'system_log') {
-        if (seenSystemLogIdsRef.current.has(message.log.id)) return
-        seenSystemLogIdsRef.current.add(message.log.id)
-        // Prevent unbounded Set growth
-        limitSetSize(seenSystemLogIdsRef.current, 500)
-        dispatch({ type: 'push_system_log', log: message.log })
-      } else if (message.type === 'simulation_state') {
-        dispatch({ type: 'set_tick', tick: message.state.tick })
-        dispatch({ type: 'set_running', isRunning: message.state.isRunning })
-        dispatch({ type: 'set_speed', speed: message.state.speed })
-        dispatch({ type: 'set_config', patch: message.state.config })
-        if (message.state.selectedAgentId !== null) {
-          dispatch({ type: 'set_selected_agent', agentId: message.state.selectedAgentId })
+    if (USE_WEBSOCKET) {
+      wsClient.connect();
+      wsClient.subscribe({ eventTypes: ['tick', 'post', 'event', 'log', 'state', 'system_log'] });
+
+      unsubscribe = wsClient.onMessage((message) => {
+        if (message.type === 'tick_update') {
+          dispatch({ type: 'set_tick', tick: message.tick });
+          dispatch({ type: 'set_running', isRunning: message.isRunning });
+          dispatch({ type: 'set_speed', speed: message.speed });
+        } else if (message.type === 'post_created') {
+          if (seenFeedIdsRef.current.has(message.post.id)) return;
+          seenFeedIdsRef.current.add(message.post.id);
+          limitSetSize(seenFeedIdsRef.current, 5000);
+          dispatch({
+            type: 'push_feed',
+            tick: message.post.tick,
+            authorId: message.post.authorId,
+            authorName: message.post.authorName,
+            content: message.post.content,
+            emotion: message.post.emotion,
+            likes: message.post.likes,
+            postId: message.post.id,
+          });
+        } else if (message.type === 'event_created') {
+          const eventId = message.event.id || id('evt');
+          if (seenEventIdsRef.current.has(eventId)) return;
+          seenEventIdsRef.current.add(eventId);
+          limitSetSize(seenEventIdsRef.current, 3000);
+          dispatch({ type: 'push_event', event: { ...message.event, id: eventId } });
+        } else if (message.type === 'log_added') {
+          if (seenLogIdsRef.current.has(message.log.id)) return;
+          seenLogIdsRef.current.add(message.log.id);
+          limitSetSize(seenLogIdsRef.current, 5000);
+          dispatch({ type: 'push_log', level: message.log.level, tick: message.log.tick, agentId: message.log.agentId, text: message.log.text });
+        } else if (message.type === 'system_log') {
+          if (seenSystemLogIdsRef.current.has(message.log.id)) return;
+          seenSystemLogIdsRef.current.add(message.log.id);
+          limitSetSize(seenSystemLogIdsRef.current, 500);
+          dispatch({ type: 'push_system_log', log: message.log });
+        } else if (message.type === 'simulation_state') {
+          dispatch({ type: 'set_tick', tick: message.state.tick });
+          dispatch({ type: 'set_running', isRunning: message.state.isRunning });
+          dispatch({ type: 'set_speed', speed: message.state.speed });
+          dispatch({ type: 'set_config', patch: message.state.config });
+          if (message.state.selectedAgentId !== null) {
+            dispatch({ type: 'set_selected_agent', agentId: message.state.selectedAgentId });
+          }
+        } else if (message.type === 'connected') {
+          if (!hydratedRef.current) {
+            hydrateFromBackend();
+          } else {
+            syncStreamFromBackend();
+          }
         }
-      } else if (message.type === 'connected') {
-        if (!hydratedRef.current) {
-          hydrateFromBackend()
-        } else {
-          syncStreamFromBackend()
-        }
-      }
-    })
+      });
+    }
 
     return () => {
-      // Clear intervals
-      window.clearInterval(retryTimer)
-      window.clearInterval(streamSyncTimer)
-
-      // Cleanup WebSocket listener
-      unsubscribe()
-
-      // Disconnect WebSocket
-      wsClient.disconnect()
-
-      // Clear Sets to prevent memory leaks
-      seenFeedIdsRef.current.clear()
-      seenEventIdsRef.current.clear()
-      seenLogIdsRef.current.clear()
-      seenInterventionIdsRef.current.clear()
-      seenSystemLogIdsRef.current.clear()
-    }
-  }, [])
+      window.clearInterval(retryTimer);
+      window.clearInterval(streamSyncTimer);
+      if (unsubscribe) {
+        unsubscribe();
+      }
+      if (USE_WEBSOCKET) {
+        wsClient.disconnect();
+      }
+      seenFeedIdsRef.current.clear();
+      seenEventIdsRef.current.clear();
+      seenLogIdsRef.current.clear();
+      seenInterventionIdsRef.current.clear();
+      seenSystemLogIdsRef.current.clear();
+    };
+  }, []);
 
   useEffect(() => {
     return () => {
       if (configPatchTimerRef.current) {
-        window.clearTimeout(configPatchTimerRef.current)
+        window.clearTimeout(configPatchTimerRef.current);
       }
-    }
-  }, [])
+    };
+  }, []);
 
-  const actions = useMemo<SimActions>(() => {
-    return {
+  const actions = useMemo<SimActions>(
+    () => ({
       toggleRun: async () => {
-        const newRunningState = !state.isRunning
-        dispatch({ type: 'toggle_run' })
+        const newRunningState = !state.isRunning;
+        dispatch({ type: 'toggle_run' });
 
         if (USE_REAL_API) {
           try {
             if (newRunningState) {
-              await api.simulation.start()
+              await api.simulation.start();
             } else {
-              await api.simulation.pause()
+              await api.simulation.pause();
             }
           } catch (err) {
-            console.error('[SimulationProvider] Failed to toggle run state:', err)
-            dispatch({ type: 'toggle_run' })
+            console.error('[SimulationProvider] Failed to toggle run state:', err);
+            dispatch({ type: 'toggle_run' });
           }
         }
       },
       setSpeed: async (speed) => {
-        dispatch({ type: 'set_speed', speed })
+        dispatch({ type: 'set_speed', speed });
         if (USE_REAL_API) {
           try {
-            await api.simulation.setSpeed(speed)
+            await api.simulation.setSpeed(speed);
           } catch (err) {
-            console.error('[SimulationProvider] Failed to set speed:', err)
+            console.error('[SimulationProvider] Failed to set speed:', err);
           }
         }
       },
       setTick: async (tick) => {
-        dispatch({ type: 'set_tick', tick })
+        dispatch({ type: 'set_tick', tick });
         if (USE_REAL_API) {
           try {
-            await api.simulation.setTick(tick)
+            await api.simulation.setTick(tick);
           } catch (err) {
-            console.error('[SimulationProvider] Failed to set tick:', err)
+            console.error('[SimulationProvider] Failed to set tick:', err);
           }
         }
       },
@@ -394,50 +375,49 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
       logError: (text, agentId) => dispatch({ type: 'push_log', level: 'error', tick: state.tick, agentId, text }),
       pushEvent: (e) => dispatch({ type: 'push_event', event: makeEvent({ ...e, tick: e.tick }) }),
       pushFeed: (authorId, content, emotion) =>
-        dispatch({ type: 'push_feed', tick: state.tick, authorId, content, emotion: clamp(emotion, -1, 1) }),
+        dispatch({ type: 'push_feed', tick: state.tick, authorId, content, emotion }),
       applyIntervention: async (command, targetAgentId) => {
         if (USE_REAL_API) {
           try {
-            await api.interventions.create({ tick: state.tick, command, targetAgentId })
-            dispatch({ type: 'apply_intervention', tick: state.tick, command, targetAgentId })
-            return true
+            await api.interventions.create({ tick: state.tick, command, targetAgentId });
+            dispatch({ type: 'apply_intervention', tick: state.tick, command, targetAgentId });
+            return true;
           } catch (err) {
-            console.error('[SimulationProvider] Failed to apply intervention:', err)
+            console.error('[SimulationProvider] Failed to apply intervention:', err);
             dispatch({
               type: 'push_log',
               level: 'error',
               tick: state.tick,
               agentId: targetAgentId,
               text: `intervention failed: ${command}`,
-            })
-            return false
+            });
+            return false;
           }
         }
-
-        dispatch({ type: 'apply_intervention', tick: state.tick, command, targetAgentId })
-        return true
+        dispatch({ type: 'apply_intervention', tick: state.tick, command, targetAgentId });
+        return true;
       },
       setConfig: (patch) => {
-        dispatch({ type: 'set_config', patch })
+        dispatch({ type: 'set_config', patch });
 
-        if (!USE_REAL_API) return
-        pendingConfigPatchRef.current = { ...pendingConfigPatchRef.current, ...patch }
+        if (!USE_REAL_API) return;
+        pendingConfigPatchRef.current = { ...pendingConfigPatchRef.current, ...patch };
 
         if (configPatchTimerRef.current) {
-          window.clearTimeout(configPatchTimerRef.current)
+          window.clearTimeout(configPatchTimerRef.current);
         }
 
         configPatchTimerRef.current = window.setTimeout(async () => {
-          const configPatch = pendingConfigPatchRef.current
-          pendingConfigPatchRef.current = {}
-          configPatchTimerRef.current = null
+          const configPatch = pendingConfigPatchRef.current;
+          pendingConfigPatchRef.current = {};
+          configPatchTimerRef.current = null;
 
           try {
-            await api.state.patch({ config: configPatch })
+            await api.state.patch({ config: configPatch });
           } catch (err) {
-            console.error('[SimulationProvider] Failed to persist config:', err)
+            console.error('[SimulationProvider] Failed to persist config:', err);
           }
-        }, 500)
+        }, 500);
       },
       patchAgent: (agentId, patch) => dispatch({ type: 'mutate_agent_state', agentId, patch }),
       regeneratePersonas: () => dispatch({ type: 'regenerate_personas' }),
@@ -445,16 +425,17 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
       loadSnapshot: (snapshotId) => dispatch({ type: 'load_snapshot', snapshotId }),
       deleteSnapshot: (snapshotId) => dispatch({ type: 'delete_snapshot', snapshotId }),
       clearSnapshots: () => dispatch({ type: 'clear_snapshots' }),
-    }
-  }, [state])
+    }),
+    [state]
+  );
 
-  const value = useMemo<SimContextValue>(() => ({ state, dispatch, actions }), [actions, state])
+  const value = useMemo<SimContextValue>(() => ({ state, dispatch, actions }), [actions, state]);
 
-  return <SimContext.Provider value={value}>{children}</SimContext.Provider>
+  return <SimContext.Provider value={value}>{children}</SimContext.Provider>;
 }
 
 export function useSim(): SimContextValue {
-  const ctx = useContext(SimContext)
-  if (!ctx) throw new Error('useSim must be used within SimulationProvider')
-  return ctx
+  const ctx = useContext(SimContext);
+  if (!ctx) throw new Error('useSim must be used within SimulationProvider');
+  return ctx;
 }

@@ -453,6 +453,17 @@ def save_feed_post(post: FeedPost) -> str:
         import datetime
         created_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
+        # 确保 user 存在（如果不存在则创建默认记录）
+        cursor.execute("""
+            SELECT user_id FROM user WHERE user_id = ?
+        """, (post.author_id,))
+        if not cursor.fetchone():
+            # 创建默认 user 记录
+            cursor.execute("""
+                INSERT OR IGNORE INTO user (user_id, user_name, name)
+                VALUES (?, ?, ?)
+            """, (post.author_id, f"Agent_{post.author_id}", f"Agent_{post.author_id}"))
+
         cursor.execute("""
             INSERT INTO post (user_id, content, created_at, num_likes)
             VALUES (?, ?, ?, ?)

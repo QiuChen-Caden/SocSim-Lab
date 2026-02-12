@@ -88,6 +88,22 @@ function filterConnected(nodes: AgentGraphNode[], edges: AgentGraphEdge[], force
   return nodes.filter((n) => connected.has(n.id) || n.id === forceKeepId)
 }
 
+/**
+ * Builds an ego-centric agent graph centered on a focus agent.
+ *
+ * Uses BFS (Breadth-First Search) to discover nodes within the network,
+ * prioritizing strong connections. Falls back to degree-based selection if
+ * insufficient nodes are found through BFS traversal.
+ *
+ * @param opts - Configuration options for graph building
+ * @param opts.seed - Random seed for deterministic mock data
+ * @param opts.focusId - ID of the central agent (ego)
+ * @param opts.sampleAgents - Total number of agents in the simulation
+ * @param opts.maxNodes - Maximum number of nodes to include in graph
+ * @param opts.relationEdges - Real relation edges from backend (optional)
+ * @param opts.validAgentIds - Whitelist of valid agent IDs (optional)
+ * @returns A graph with nodes, edges, and categories
+ */
 export function buildEgoAgentGraph(opts: {
   seed: number
   focusId: number

@@ -6,7 +6,8 @@
  */
 import { useEffect, useRef, useCallback } from 'react'
 import { useSim } from './SimulationProvider'
-import api, { wsClient, type WebSocketMessage } from './api'
+import api, { wsClient } from '../api'
+import type { WebSocketMessage } from '../types'
 
 // 是否使用真实 API 或模拟 Whether to use real API or mock
 const USE_REAL_API = import.meta.env.VITE_USE_REAL_API === 'true'
@@ -175,7 +176,7 @@ export function useRealEngine() {
         clearInterval(syncIntervalRef.current)
       }
     }
-  }, [sim.dispatch, sim.state.selectedAgentId, initializeFromBackend])
+  }, [sim.dispatch, sim.state.selectedAgentId, initializeFromBackend, USE_WEBSOCKET])
 
   // WebSocket 连接（暂时禁用） WebSocket connection (temporarily disabled)
   useEffect(() => {

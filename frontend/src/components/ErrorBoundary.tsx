@@ -16,7 +16,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
   }
 
   componentDidCatch() {
-    // keep default behavior (we can add telemetry later)
+    // 保持默认行为（稍后可以添加遥测） keep default behavior (we can add telemetry later)
   }
 
   render() {

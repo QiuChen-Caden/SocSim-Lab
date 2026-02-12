@@ -1,197 +1,63 @@
-# SocSim Lab - 社交模拟可视化平台
+# SocSim Lab
 
-> **版本**: v3.2 | **更新日期**: 2026-02-07
-> **大规模社交模拟可视化平台**：百万级智能体渲染 · 实时干预控制 · 系统日志查看 · FastAPI 后端集成
+> 基于 Agent-Based Modeling (ABM) 的社会模拟可视化平台
+> 版本：v3.2 | 更新：2026-02-12
+
+---
 
 ## 项目简介
 
-**SocSim Lab** 是一个基于多智能体模拟（Agent-Based Modeling）的社交动态可视化平台，采用前后端分离架构，帮助研究人员、数据科学家和策略制定者直观地研究社会现象、舆情传播和群体行为。
-
-**核心特性**：
-- 🚀 **完整后端集成**：FastAPI + SQLite + WebSocket 实时通信
-- 👥 **真实用户画像**：30 个真实 Twitter 用户数据，包含心理测量模型
-- 🎨 **高性能渲染**：PixiJS 支持 200-50000 个智能体流畅可视化
-- 📊 **数据可视化**：ECharts 图表、热力图、关系图谱
-- 🎮 **实时干预**：自然语言命令控制模拟运行
+**SocSim Lab** 是一个社会模拟可视化平台，基于 Agent-Based Modeling (ABM) 方法研究社会动态、舆情传播和群体行为。
 
 ### 核心特性
 
-- **OASIS 后端集成**：完整对接 OASIS 社交模拟平台
-- **真实 Twitter Personas**：30 个真实提取的 Twitter 用户画像
-- **心理测量数据**：大五人格、道德基础理论
-- **REST + WebSocket**：完整的 API 支持
-- **大规模数据渲染**：支持百万级智能体状态管理，采样渲染 200-50000 个智能体
-- **高性能 2D 可视化**：基于 PixiJS 实现的世界视图，支持平滑缩放、拖拽、惯性移动
-- **微观/宏观双模式**：
-  - 微观模式：显示单个智能体位置，通过颜色表示情绪状态
-  - 宏观模式：网格热力图展示群体情绪分布
-- **流式日志系统**：实时增量展示模拟运行日志
-- **干预控制台**：支持自然语言命令对模拟进行实时干预
-- **系统日志**：基于事件流的系统日志查看与时间轴回放
-- **社交信息流**：模拟社交平台的 Feed 流展示，支持多种排序方式
-- **快照系统**：保存和恢复模拟状态
+| 特性 | 描述 |
+|------|------|
+| 🚀 **完整后端集成** | FastAPI + SQLite + WebSocket 实时通信 |
+| 👥 **真实用户画像** | 30 个真实 Twitter 用户数据，包含心理测量模型 |
+| 🎨 **高性能渲染** | PixiJS 支持 2000-50000 个智能体流畅可视化 |
+| 📊 **数据可视化** | ECharts 图表、热力图、关系图谱 |
+| 🎮 **实时干预** | 自然语言命令控制模拟运行 |
 
-## 技术栈
-
-| 技术 | 版本 | 用途 |
-|------|------|------|
-| React | 19.3.0 | UI 框架 |
-| TypeScript | 5.8.3 | 类型系统 |
-| Vite | 7.4.0 | 构建工具 |
-| PixiJS | 8.15.0 | 2D 渲染引擎 |
-| pixi-viewport | 6.0.3 | 视口管理（缩放/拖拽） |
-| ECharts | 6.x | 图表可视化 |
-| FastAPI | 0.115.0 | 后端 API 服务 |
-| SQLite3 | - | 数据库 |
-| WebSocket | - | 实时通信 |
-
-## 项目结构
-
-```
-SocSim-Lab/                      # 项目根目录
-├── frontend/                    # 前端服务
-│   ├── src/
-│   │   ├── app/                 # 应用核心逻辑
-│   │   │   ├── SimulationProvider.tsx    # 模拟状态管理
-│   │   │   ├── state.ts                  # 初始状态定义
-│   │   │   ├── types.ts                  # TypeScript 类型定义
-│   │   │   ├── util.ts                   # 工具函数
-│   │   │   ├── useMockEngine.ts          # 模拟引擎 Hook
-│   │   │   ├── useRealEngine.ts          # 真实 API 引擎 Hook
-│   │   │   ├── api.ts                    # 后端 API 客户端
-│   │   │   ├── persona.ts                # Twitter personas 数据处理
-│   │   │   └── agentGraph.ts             # 智能体关系图
-│   │   ├── components/           # 可复用组件
-│   │   │   ├── ErrorBoundary.tsx         # 错误边界
-│   │   │   └── PixiWorld.tsx             # PixiJS 世界视图组件
-│   │   ├── views/                # 页面视图
-│   │   │   ├── WorkbenchView.tsx         # 工作台
-│   │   │   ├── WorldView.tsx             # 世界视图
-│   │   │   ├── FeedView.tsx              # 社交信息流
-│   │   │   └── ReplayView.tsx            # 系统日志查看器
-│   │   ├── App.tsx                       # 应用入口
-│   │   ├── main.tsx                      # React 挂载点
-│   │   └── styles.css                    # 全局样式
-│   ├── package.json              # 前端依赖
-│   ├── vite.config.ts            # Vite 配置
-│   └── index.html                # HTML 入口
-│
-├── backend/                     # 后端服务
-│   ├── main.py                  # FastAPI 应用入口
-│   ├── requirements.txt         # Python 依赖
-│   ├── .env.example             # 环境变量示例
-│   ├── import_personas.py       # Twitter personas 导入脚本
-│   ├── models/                  # 数据模型
-│   │   ├── types.py             # Python 类型定义
-│   │   └── database.py          # 数据库操作
-│   ├── algorithms/              # 算法模块
-│   │   ├── layout.py            # 2D 布局算法
-│   │   └── emotion.py           # 情绪分析
-│   ├── websocket/               # WebSocket 模块
-│   │   └── manager.py           # 连接管理器
-│   ├── schema/                  # 数据库架构
-│   │   └── extended_user.sql    # 扩展表结构
-│   └── data/                    # 数据目录
-│       └── oasis_frontend.db    # SQLite 数据库（运行时生成）
-│
-├── docs/                        # 文档
-│   ├── PRD.md                   # 产品需求文档
-│   └── README.md                # 文档说明
-│
-├── start.bat                    # Windows 启动脚本
-├── start.sh                     # Linux/Mac 启动脚本
-└── README.md                    # 项目说明
-```
+---
 
 ## 快速开始
 
-### 方式一：一键启动（推荐）
+### 前置要求
 
-**Windows:**
-```bash
-start.bat
-```
-或
-```bash
-start_oneclick.bat
-```
+- **Python**: 3.10+ (不支持 OASIS 框架)
+- **Node.js**: 18.0+
+- **包管理器**: pip / npm
 
-**Linux/Mac:**
-```bash
-chmod +x start.sh && ./start.sh
-```
-或
-```bash
-chmod +x start_oneclick.sh && ./start_oneclick.sh
-```
+### 一键启动
 
-> 前置条件：Windows 需要 conda。Linux/Mac 推荐 conda + Python 3.11；若无 conda，请确保 python3 3.10/3.11（3.12+ 不支持 OASIS）。
-> 确保 `oasis-main/` 位于项目根目录（SocSim-Lab/oasis-main）。
+> **Windows 用户**: 双击 `start.bat`
+> **Linux/Mac 用户**: 运行 `chmod +x start.sh && ./start.sh`
 
-启动脚本会自动完成以下操作：
-1. 准备 Python 3.11 环境（conda 优先，venv 兜底）
-2. 安装后端依赖 + oasis-main
-3. 导入 Twitter personas 数据到 SQLite 数据库
-4. 设置运行库路径（默认 `data/oasis_simulation_run.db`）
-5. 启动后端 API 服务（http://localhost:8000）
-6. 启动前端开发服务器（http://localhost:5173）
+### 手动启动
 
-### 方式二：手动启动
+#### 1. 后端服务
 
-#### 后端服务
-
-**方式 A：Conda（推荐，Linux/Mac/Windows 通用）**
 ```bash
 cd backend
+# 方式 A：Conda（推荐）
+conda create -n socsim-env python=3.11 -y
+conda run -n socsim-env python -m pip install -r requirements.txt
 
-# 创建环境（首次运行）
-conda create -n socsim-py311 python=3.11 -y
-
-# 安装依赖
-conda run -n socsim-py311 python -m pip install -r requirements.txt
-conda run -n socsim-py311 python -m pip install -e ../oasis-main
-
-# 导入 Twitter personas 数据（首次运行）
-OASIS_DB_PATH=../data/oasis_frontend.db \
-  conda run -n socsim-py311 python import_personas.py --file twitter_personas_20260123_222506.json
-
-# 启动后端服务
-OASIS_DB_PATH=../data/oasis_frontend.db \
-OASIS_RUNTIME_DB_PATH=../data/oasis_simulation_run.db \
-  conda run -n socsim-py311 python main.py
-```
-
-**方式 B：venv（无 conda 时，Linux/Mac）**
-```bash
-cd backend
-
-# 创建 venv（首次运行）
+# 方式 B：venv（无 conda 时）
 python3 -m venv venv
 source venv/bin/activate
-
-# 安装依赖
 pip install -r requirements.txt
-pip install -e ../oasis-main
 
-# 导入 Twitter personas 数据（首次运行）
-OASIS_DB_PATH=../data/oasis_frontend.db \
-  python import_personas.py --file twitter_personas_20260123_222506.json
+# 导入数据
+OASIS_DB_PATH=../data/oasis_frontend.db
+python import_personas.py --file ../twitter_personas_20260123_222506.json
 
-# 启动后端服务
-OASIS_DB_PATH=../data/oasis_frontend.db \
-OASIS_RUNTIME_DB_PATH=../data/oasis_simulation_run.db \
-  python main.py
+# 启动服务（默认端口 8000）
+python main.py
 ```
 
-**后端服务地址**：
-- API 地址：http://localhost:8000
-- Swagger 文档：http://localhost:8000/docs
-- ReDoc 文档：http://localhost:8000/redoc
-- WebSocket：ws://localhost:8000/ws
-
-> 提示：如需启用 LLM 行为，请在启动前设置 `LLM_API_KEY`（或 `DEEPSEEK_API_KEY` / `OPENAI_API_KEY`）。
-
-#### 前端服务
+#### 2. 前端服务
 
 ```bash
 cd frontend
@@ -199,70 +65,125 @@ cd frontend
 # 安装依赖（首次运行）
 npm install
 
-# 启动开发服务器
+# 启动开发服务器（默认端口 5173）
 npm run dev
 
-# 构建生产版本
-npm run build
-
-# 预览生产构建
-npm run preview
-```
-
-前端服务：http://localhost:5173
-
-### Mock 模式 vs 真实 API
-
-项目支持两种运行模式：
-
-| 模式 | 配置 | 说明 |
-|------|------|------|
-| **Mock 模式**（默认） | `VITE_USE_REAL_API=false` | 使用前端模拟数据，无需后端 |
-| **真实 API 模式** | `VITE_USE_REAL_API=true` | 连接 FastAPI 后端，支持数据持久化 |
-
-创建 `frontend/.env` 文件切换模式：
-```bash
-VITE_USE_REAL_API=true
-VITE_API_URL=http://localhost:8000
-```
-
-### 构建生产版本
-
-```bash
-cd frontend
+# 构建
 npm run build
 ```
 
-### 代码检查
+### 服务地址
+
+| 服务 | 地址 |
+|------|------|
+| **前端** | http://localhost:5173 |
+| **后端 API** | http://localhost:8000 |
+| **Swagger 文档** | http://localhost:8000/docs |
+| **WebSocket** | ws://localhost:8000/ws |
+
+### LLM 配置（可选）
+
+如需启用 LLM 功能，请设置环境变量：
 
 ```bash
-cd frontend
-npm run lint
+# DeepSeek（默认）
+set LLM_API_KEY=sk-your-deepseek-key
+
+# OpenAI
+set OPENAI_API_KEY=sk-your-openai-key
+
+# AI365
+set AI365_API_KEY=your-ai365-key
 ```
 
-### 数据持久化说明
+---
 
-**重要**：项目使用 **SQLite 嵌入式数据库**，无需单独部署数据库服务：
+## 项目结构
 
-- Mock 模式：前端模拟数据，无需后端，无持久化
-- Real 模式：后端使用 SQLite，数据存储在 `data/oasis_frontend.db`
-- 跨电脑部署：只需复制数据库文件即可
+```
+SocSim-Lab/
+├── frontend/                    # 前端服务 (React + Vite)
+│   ├── src/
+│   │   ├── app/                 # 应用核心逻辑
+│   │   │   ├── SimulationProvider.tsx    # 模拟状态管理 (React Context + useReducer)
+│   │   │   ├── state.ts                  # 状态定义与 reducer
+│   │   │   ├── types.ts                 # TypeScript 类型定义
+│   │   │   ├── util.ts                  # 工具函数
+│   │   │   ├── persona.ts                # Twitter personas 数据处理
+│   │   │   ├── agentGraph.ts             # 智能体关系图构建
+│   │   │   ├── useMockEngine.ts          # Mock 模拟引擎
+│   │   │   ├── useRealEngine.ts          # 真实 API 引擎
+│   │   │   ├── api.ts                    # 后端 API 客户端
+│   │   │   ├── components/              # 可复用组件
+│   │   │   │   ├── ErrorBoundary.tsx      # React 错误边界
+│   │   │   │   └── PixiWorld.tsx         # PixiJS 世界视图组件
+│   │   ├── views/                    # 页面视图
+│   │   │   ├── WorkbenchView.tsx         # 工作台（实验控制）
+│   │   │   ├── WorldView.tsx            # 世界视图（2D 可视化）
+│   │   │   ├── FeedView.tsx             # 社交信息流
+│   │   │   └── ReplayView.tsx            # 系统日志查看器
+│   │   ├── App.tsx                       # 应用入口
+│   │   ├── main.tsx                      # React 挂载点
+│   │   ├── styles.css                    # 全局样式
+│   ├── package.json                      # 前端依赖
+│   ├── vite.config.ts                   # Vite 配置（代理：/api -> http://127.0.0.1:8000）
+│   └── index.html                      # HTML 入口
+│
+├── backend/                          # 后端服务 (FastAPI + SQLite)
+│   ├── main.py                          # FastAPI 应用入口
+│   ├── requirements.txt                  # Python 依赖
+│   ├── .env.example                     # 环境变量示例
+│   ├── models/                          # 数据模型（Pydantic）
+│   │   ├── types.py                    # Python 类型定义
+│   │   ├── database.py                 # 数据库操作（SQLAlchemy）
+│   │   └── schema.py                   # 数据库架构
+│   ├── algorithms/                      # 算法模块
+│   │   ├── layout.py                  # 2D 布局算法
+│   │   └── emotion.py               # 情绪分析
+│   ├── websocket/                       # WebSocket 模块
+│   │   └── manager.py              # 连接管理器
+│   ├── schema/                          # 数据库架构
+│   │   ├── extended_user.sql        # 扩展用户表结构
+│   └── data/                         # 数据目录
+│       └── oasis_frontend.db        # SQLite 数据库（运行时生成）
+│
+├── docs/                            # 文档
+│   ├── PRD.md                         # 产品需求文档
+│   └── README.md                      # 项目说明
+│
+├── start.bat                        # Windows 启动脚本
+├── start.sh                          # Linux/Mac 启动脚本
+└── README.md                         # 本文件
+```
 
-**数据库位置**：
-- 默认：`data/oasis_frontend.db`（项目根目录）
-- 可通过环境变量 `OASIS_DB_PATH` 自定义
+---
 
-## 功能详解
+## 技术栈
 
-### 1. Workbench 工作台 🛠️
+| 技术 | 版本 | 用途 |
+|------|------|--------|
+| **React** | 19.3.0 | UI 框架 |
+| **TypeScript** | 5.8.3 | 类型系统 |
+| **Vite** | 7.4.0 | 构建工具 |
+| **PixiJS** | 8.15.0 | 2D 渲染引擎 |
+| **pixi-viewport** | 6.0.3 | 视口管理（缩放/拖拽） |
+| **ECharts** | 6.x | 图表可视化 |
+| **FastAPI** | 0.115.0 | 后端 API 框架 |
+| **SQLAlchemy** | 2.0+ | 数据库 ORM |
+| **WebSocket** | - | 实时通信 |
 
-实验全生命周期管理，包含四个核心阶段：
+---
+
+## 核心功能
+
+### 1. 工作台 (Workbench) 🛠️
+
+完整的实验生命周期管理，包含四个核心阶段：
 
 #### Design 设计阶段
 - 场景配置：智能体数量、世界大小、时间步速度
 - 约束设置：资源限制、行为规则
 - 采样配置：渲染智能体数量（200-50000）
-- 多标签页：Scenario、Pipeline、Groups、Config
 
 #### Run 运行阶段
 - 启动/暂停/停止控制
@@ -285,9 +206,13 @@ npm run lint
 - 事件流时间线
 - 数据导出功能（CSV/JSON）
 
-### 2. World 世界视图 🌍
+### 2. 世界视图 (World View) 🌍
 
 基于 PixiJS 8.x 的高性能 2D 可视化：
+
+#### 视图模式
+- **微观模式**：显示单个智能体位置，通过颜色表示情绪状态
+- **宏观模式**：网格热力图展示群体情绪分布
 
 #### 交互操作
 - **拖拽平移**：按住鼠标左键拖动画布
@@ -295,24 +220,13 @@ npm run lint
 - **选择智能体**：点击任意位置选择最近智能体
 - **惯性移动**：松开鼠标后平滑减速
 
-#### 视图模式
-**微观模式 (Micro)**：
-- 显示单个智能体精灵
-- 金色光环高亮选中智能体
-- 颜色映射情绪：红色(消极) → 蓝色(中性) → 绿色(积极)
+#### 性能优化
+- **Sprite 复用**：预生成点纹理，所有智能体共享
+- **增量更新**：只在 tick 变化时更新位置
+- **ResizeObserver**：响应式调整画布大小
+- **StrictMode**：正确处理初始化竞态和销毁
 
-**宏观模式 (Macro)**：
-- 网格热力图展示群体情绪分布
-- 颜色深浅表示区域密度和平均情绪
-- 适合观察大规模群体趋势
-
-#### 性能特性
-- 支持百万级智能体状态管理
-- 采样渲染 200-50000 个智能体
-- 60 FPS 流畅动画
-- Sprite 复用和增量更新优化
-
-### 3. Feed 信息流 📰
+### 3. 信息流 (Feed View) 📰
 
 模拟社交媒体平台的信息展示：
 
@@ -328,21 +242,9 @@ npm run lint
   - 跳转到作者详情
   - 跳转到发布时间点
 
-#### 指标仪表盘
-- 基础统计：总帖子数、总点赞数、平均情绪
-- 参与度指标：活跃用户、互动率
-- 情绪分布：饼图展示情绪构成
-- 极化指数：群体观点分化程度
+### 4. 系统日志 (System Log) ⏮️
 
-### 4. System Log 系统日志 ⏮️
-
-基于完整事件流的系统日志查看与时间轴回放功能：
-
-#### 时间轴控制
-- 播放/暂停/停止
-- 时间滑块拖动跳转
-- 速度调节：0.5x、1x、2x
-- 帧级控制：前进/后退 10 帧
+基于完整事件流的系统日志查看与时间轴回放：
 
 #### 事件类型筛选
 - `agent_action` - 智能体行为事件
@@ -351,252 +253,202 @@ npm run lint
 - `alert` - 系统警告事件
 - `bookmark` - 手动书签事件
 
-#### 实验记录管理
-- **快照系统**：保存任意时刻完整状态
-- **书签管理**：标记关键时刻，添加备注
-- **状态恢复**：一键加载历史快照
-- **记录对比**：对比不同实验结果
+#### 时间轴控制
+- 播放/暂停/停止
+- 时间滑块拖动跳转
+- 速度调节：0.5x、1x、2x
 
-## 数据模型
+### 5. 数据模型
 
-### Twitter Personas 数据结构
+基于真实 Twitter 用户画像的心理测量模型：
 
-项目使用 30 个真实提取的 Twitter 用户画像，包含完整的多维度数据：
+#### Big Five 大五人格
+- **Openness (O)**: 开放性 (0-1)
+- **Conscientiousness (C)**: 尽责性 (0-1)
+- **Extraversion (E)**: 外向性 (0-1)
+- **Agreeableness (A)**: 宜人性 (0-1)
+- **Neuroticism (N)**: 神经质 (0-1)
 
-```typescript
-interface AgentProfile {
-  id: number                    // 智能体 ID (1-30)
-  name: string                  // Twitter 用户名
-  group: string                 // 所属群体 (Group A-E)
+#### Moral Foundations 道德基础
+- **care/伤害**: 关怀/伤害
+- **fairness/欺骗**: 公平/欺骗
+- **loyalty/betrayal**: 忠诚/背叛
+- **authority/subversion**: 权威/反叛
+- **sanctity/degradation**: 神圣/堕落
 
-  // 身份信息
-  identity: {
-    username: string            // Twitter @username
-    age_band: '18-24' | '25-34' | '35-44' | '45-54' | '55-64' | '65+'
-    gender: 'male' | 'female' | 'unknown'
-    location: {
-      country: string
-      region_city: string
-    }
-    profession: string
-    domain_of_expertise: string[]
-  }
+#### 社会地位
+- **影响力阶层**: 普通用户 | 意见领袖 | 精英
+- **经济水平**: 低 | 中 | 高 | 未知
+- **网络规模**: 社交网络大小代理值 (0-4+)
 
-  // 心理测量
-  psychometrics: {
-    personality: {
-      big_five: {
-        O: number  // Openness 开放性
-        C: number  // Conscientiousness 尽责性
-        E: number  // Extraversion 外向性
-        A: number  // Agreeableness 宜人性
-        N: number  // Neuroticism 神经质
-      }
-    }
-    values: {
-      moral_foundations: {
-        care: number       // 关怀/伤害
-        fairness: number   // 公平/欺骗
-        loyalty: number    // 忠诚/背叛
-        authority: number  // 权威/反叛
-        sanctity: number   // 神圣/堕落
-      }
-    }
-  }
+---
 
-  // 社会地位
-  social_status: {
-    influence_tier: 'ordinary_user' | 'opinion_leader' | 'elite'
-    economic_band: 'low' | 'medium' | 'high' | 'unknown'
-    social_capital: {
-      network_size_proxy: number  // 0-4+
-    }
-  }
+## 后端 API
 
-  // 行为画像
-  behavior_profile: {
-    posting_cadence: {
-      posts_per_day: number
-      diurnal_pattern: Array<{
-        period: 'morning' | 'afternoon' | 'evening' | 'night'
-        probability: number
-      }>
-    }
-    rhetoric_style: {
-      civility: number        // 文明度 0-1
-      evidence_citation: number  // 证据引用 0-1
-    }
-  }
-
-  // 认知状态
-  cognitive_state: {
-    core_affect: {
-      sentiment: 'angry' | 'calm' | 'happy' | 'sad' | 'fearful' | 'surprised'
-      arousal: number  // 唤醒度 0-1
-    }
-    issue_stances: Array<{
-      issue: string
-      position: number  // -1 (反对) ~ 1 (支持)
-      confidence: number  // 0-1
-    }>
-  }
-}
-
-// 智能体状态
-interface AgentState {
-  mood: number               // 当前情绪 -1 ~ 1
-  stance: number             // 立场 -1 ~ 1
-  resources: number          // 资源量
-  lastAction: string         // 最近行为
-  evidence: Evidence         // 证据追踪
-}
-```
-
-## 状态管理
-
-项目使用 React Context + useReducer 模式管理全局模拟状态：
-
-```typescript
-// 状态结构
-interface SimulationState {
-  config: SimulationConfig
-  tick: number
-  isRunning: boolean
-  speed: number
-  selectedAgentId: number | null
-  agents: Record<number, { profile: AgentProfile; state: AgentState }>
-  logs: LogLine[]
-  events: TimelineEvent[]
-  feed: FeedPost[]
-  interventions: InterventionRecord[]
-}
-
-// Action 类型
-type SimulationAction =
-  | { type: 'set_tick'; tick: number }
-  | { type: 'toggle_run' }
-  | { type: 'set_speed'; speed: number }
-  | { type: 'set_selected_agent'; agentId: number | null }
-  | { type: 'patch_agent'; agentId: number; patch: Partial<AgentState> }
-  | { type: 'log_info'; text: string; agentId?: number }
-  | { type: 'log_ok'; text: string; agentId?: number }
-  | { type: 'log_error'; text: string; agentId?: number }
-  | { type: 'push_event'; event: Omit<TimelineEvent, 'id'> }
-  | { type: 'push_feed'; authorId: number; content: string; emotion: number }
-  | { type: 'apply_intervention'; command: string; targetAgentId?: number }
-  | { type: 'set_config'; config: Partial<SimulationConfig> }
-```
-
-## 性能优化
-
-### PixiWorld 组件优化
-
-1. **Sprite 复用**：预生成点纹理，所有智能体共享
-2. **增量更新**：只在 tick 变化时更新位置
-3. **ResizeObserver**：响应式调整画布大小
-4. **StrictMode 兼容**：正确处理初始化竞态和销毁
-
-### 渲染优化
-
-- 采样渲染：百万级智能体中只渲染可配置数量（200-50000）
-- 虚拟化：日志和事件列表限制显示数量
-- 防抖：缩放事件使用 Pixi-viewport 内置优化
-
-## 后端架构
-
-### 技术栈
-- **FastAPI 0.109.0**：现代化 Python Web 框架
-- **SQLAlchemy + SQLite3**：数据库 ORM
-- **WebSocket**：实时双向通信
-- **NetworkX + SciPy**：网络分析和布局算法
-
-### API 端点总览
+### 端点总览
 
 | 类别 | 端点 | 方法 | 描述 |
-|------|------|------|------|
-| 智能体 | `/api/agents` | GET | 获取所有智能体 |
-| 智能体 | `/api/agents/{id}` | GET | 获取单个智能体 |
-| 智能体 | `/api/agents/{id}/state` | GET/PATCH | 获取/更新状态 |
-| 信息流 | `/api/feed` | GET/POST | 获取/创建帖子 |
-| 模拟 | `/api/simulation/start` | POST | 启动模拟 |
-| 模拟 | `/api/simulation/stop` | POST | 停止模拟 |
-| 模拟 | `/api/simulation/speed` | PUT | 设置速度 |
-| 事件 | `/api/events` | GET/POST | 获取/创建事件 |
-| 日志 | `/api/logs` | GET/POST | 获取/创建日志 |
-| 快照 | `/api/snapshots` | GET/POST | 获取/创建快照 |
-| 快照 | `/api/snapshots/{id}/load` | POST | 加载快照 |
-| 书签 | `/api/bookmarks` | GET/POST/DELETE | 书签管理 |
-| 干预 | `/api/intervention` | POST | 创建干预 |
-| 可视化 | `/api/visualization/layout` | GET | 获取 2D 布局 |
-| WebSocket | `/ws` | WS | 实时连接 |
+|------|------|--------|--------|
+| **智能体** | `/api/agents` | GET/POST | 获取所有/创建智能体 |
+| **智能体状态** | `/api/agents/{id}/state` | GET/PATCH | 获取/更新智能体状态 |
+| **信息流** | `/api/feed` | GET/POST | 获取/创建帖子 |
+| **模拟控制** | `/api/simulation/*` | POST | 启动/停止/控制 |
+| **事件** | `/api/events` | GET/POST | 获取/创建事件 |
+| **日志** | `/api/logs` | GET/POST | 获取/创建日志 |
+| **快照** | `/api/snapshots` | GET/POST | 快照管理 |
+| **书签** | `/api/bookmarks` | GET/POST/DELETE | 书签管理 |
+| **干预** | `/api/intervention` | POST | 创建干预 |
+| **可视化** | `/api/visualization/layout` | GET | 获取 2D 布局 |
+| **WebSocket** | `/ws` | WS | 实时连接 |
 
-### API 端点
+### API 文档
+- **Swagger UI**: http://localhost:8000/docs
+- **ReDoc**: http://localhost:8000/redoc
 
-| 类别 | 端点 | 方法 | 描述 |
-|------|------|------|------|
-| 智能体 | `/api/agents` | GET | 获取所有智能体 |
-| 智能体 | `/api/agents/{id}` | GET | 获取单个智能体 |
-| 智能体 | `/api/agents/{id}/state` | GET/PATCH | 获取/更新智能体状态 |
-| 信息流 | `/api/feed` | GET/POST | 获取/创建帖子 |
-| 状态 | `/api/state` | GET/PATCH | 获取/更新模拟状态 |
-| 模拟 | `/api/simulation/start` | POST | 启动模拟 |
-| 模拟 | `/api/simulation/stop` | POST | 停止模拟 |
-| 模拟 | `/api/simulation/speed` | PUT | 设置速度 |
-| 事件 | `/api/events` | GET/POST | 获取/创建事件 |
-| 日志 | `/api/logs` | GET/POST | 获取/创建日志 |
-| 快照 | `/api/snapshots` | GET/POST | 获取/创建快照 |
-| 快照 | `/api/snapshots/{id}/load` | POST | 加载快照 |
-| 书签 | `/api/bookmarks` | GET/POST/DELETE | 书签管理 |
-| 干预 | `/api/intervention` | POST | 创建干预 |
-| 可视化 | `/api/visualization/layout` | GET | 获取 2D 布局 |
-| WebSocket | `/ws` | WS | 实时连接 |
+---
 
-### Twitter Personas 数据
+## 配置说明
 
-项目包含 30 个真实提取的 Twitter 用户画像，数据结构：
+### 环境变量
 
-```typescript
-{
-  identity: {
-    username, age_band, gender, location,
-    profession, domain_of_expertise
-  },
-  psychometrics: {
-    personality: { big_five: { O, C, E, A, N } },
-    values: { moral_foundations: { care, fairness, loyalty, authority, sanctity } }
-  },
-  social_status: { influence_tier, economic_band, social_capital },
-  behavior_profile: { posting_cadence, rhetoric_style },
-  cognitive_state: { core_affect, issue_stances }
-}
+后端 `.env` 文件配置项：
+
+```bash
+# 数据库路径
+OASIS_DB_PATH=../data/oasis_frontend.db
+
+# 运行时数据库路径（可选，默认覆盖上面的路径）
+OASIS_RUNTIME_DB_PATH=../data/oasis_simulation_run.db
+
+# API 配置
+CORS_ORIGINS=http://localhost:5173,http://localhost:3000
+
+# LLM 配置（可选）
+LLM_PROVIDER=deepseek
+LLM_MODEL=deepseek-chat
+LLM_BASE_URL=https://api.deepseek.com/v1
+LLM_API_KEY=sk-xxxxx
+LLM_TEMPERATURE=0.7
+LLM_MAX_TOKENS=512
+LLM_TOP_P=1.0
+LLM_ACTIVE_AGENTS=3
+
+# 调试
+DEBUG=false
 ```
 
-源文件：`twitter_personas_20260123_222506.json`
+### 前端模式
 
-## 扩展方向
+通过创建 `frontend/.env` 文件切换运行模式：
 
-### 可视化增强
-- 网络关系图谱：展示智能体之间的社交连接
-- 3D 视图模式：支持 Three.js 三维可视化
-- 地理分布图：基于位置信息的空间展示
-- 情绪趋势图：时间序列情绪变化
+```bash
+# Mock 模式（默认）
+VITE_USE_REAL_API=false
+VITE_API_URL=
 
-### 功能增强
-- 批量干预：支持群体操作和条件干预
-- 多实验对比：并行运行多个场景对比
-- 数据导出：CSV、JSON、图片格式导出
-- 报告生成：自动生成实验分析报告
+# 真实 API 模式
+VITE_USE_REAL_API=true
+VITE_API_URL=http://localhost:8000
+```
 
-### 系统优化
-- 分布式渲染：Web Worker 后台计算
-- 增量数据加载：按需加载历史数据
-- 离线模式：Service Worker 缓存
-- 多语言支持：i18n 国际化
+---
 
-## License
+## 开发指南
 
-MIT
+### 前端开发
 
-## 作者
+```bash
+# 安装依赖
+npm install
 
-SocSim Lab Team
+# 启动开发服务器（端口 5173）
+npm run dev
+
+# 类型检查
+npm run type-check
+
+# 代码检查
+npm run lint
+
+# 构建
+npm run build
+
+# 预览生产构建
+npm run preview
+```
+
+### 后端开发
+
+```bash
+# 激活环境（首次）
+# Windows: 使用 start.bat
+# Linux/Mac: 使用 start.sh
+
+# 手动激活
+source venv/bin/activate
+
+# 安装依赖
+pip install -r requirements.txt
+
+# 导入 personas 数据
+python import_personas.py --file ../twitter_personas_20260123_222506.json
+
+# 启动服务
+python main.py
+
+# 运行测试
+pytest tests/
+```
+
+---
+
+## 代码质量优化（v3.2）
+
+### 已修复的问题
+
+1. **类型安全**
+   - 移除不必要的 `as any` 类型断言
+   - 为 ECharts 回调添加正确的类型定义
+   - 修复 WebSocket 消息队列类型处理
+
+2. **性能优化**
+   - FeedView 图表计算使用 Map 数据结构（O(1) 查找）
+   - SimulationProvider actions 依赖修复
+   - AgentGraph 组件添加 React.memo 包装
+   - WebSocket 和 Set 清理优化
+
+3. **内存泄漏修复**
+   - 添加 Set 大小限制函数
+   - 改进 WebSocket 断开清理
+   - useEffect 清理函数完善
+
+4. **错误处理**
+   - PixiWorld 错误日志增强
+   - JSON 解析添加验证
+   - API 错误处理改进
+
+5. **代码清理**
+   - 移除未使用的 `USE_WEBSOCKET` 常量
+   - 添加工具函数 JSDoc 文档
+
+---
+
+## 许可证
+
+MIT License
+
+---
+
+## 作者与贡献
+
+**SocSim Lab Team**
+
+> GitHub: [SocSim-Lab](https://github.com/your-org/SocSim-Lab)
+
+---
+
+## 致谢
+
+感谢使用 SocSim Lab！
+
+如有问题或建议，欢迎提交 Issue 或 Pull Request。

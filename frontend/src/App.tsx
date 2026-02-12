@@ -1,43 +1,32 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
-import { SimulationProvider, useSim } from './app/SimulationProvider'
-import { useMockEngine } from './app/useMockEngine'
-import { FeedView } from './views/FeedView'
-import { ReplayView } from './views/ReplayView'
-import { WorkbenchView } from './views/WorkbenchView'
-import { WorldView } from './views/WorldView'
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { SimulationProvider, useSim } from './app/SimulationProvider';
+import { useMockEngine } from './app/useMockEngine';
+import { useTheme, ThemeContext, useThemeContext } from './hooks';
+import { WorkbenchView } from './views/Workbench';
+import { WorldView } from './views/WorldView';
+import { FeedView } from './views/FeedView';
+import { ReplayView } from './views/ReplayView';
 
-// 是否使用真实后端 API
-const USE_REAL_API = import.meta.env.VITE_USE_REAL_API === 'true'
 
-type ViewKey = 'workbench' | 'world' | 'feed' | 'replay'
-type Theme = 'light' | 'dark'
+const USE_REAL_API = import.meta.env.VITE_USE_REAL_API === 'true';
 
-interface ThemeContextType {
-  theme: Theme
-  toggleTheme: () => void
+type ViewKey = 'workbench' | 'world' | 'feed' | 'replay';
+
+interface NavigationContextType {
+  activeView: ViewKey;
+  navigateTo: (view: ViewKey) => void;
 }
 
-const ThemeContext = createContext<ThemeContextType | null>(null)
-
-function useTheme() {
-  const ctx = useContext(ThemeContext)
-  if (!ctx) throw new Error('useTheme must be used within ThemeContext')
-  return ctx
-}
-
-const NavigationContext = createContext<{
-  activeView: ViewKey
-  navigateTo: (view: ViewKey) => void
-} | null>(null)
+const NavigationContext = createContext<NavigationContextType | null>(null);
 
 function useNavigation() {
-  const ctx = useContext(NavigationContext)
-  if (!ctx) throw new Error('useNavigation must be used within NavigationContext')
-  return ctx
+  const ctx = useContext(NavigationContext);
+  if (!ctx) throw new Error('useNavigation must be used within NavigationContext');
+  return ctx;
 }
 
 function ThemeToggleButton() {
-  const { theme, toggleTheme } = useTheme()
+  const { theme, toggleTheme } = useThemeContext();
   return (
     <button
       className="btn btn--theme"
@@ -46,51 +35,40 @@ function ThemeToggleButton() {
     >
       {theme === 'dark' ? '☀️' : '🌙'}
     </button>
-  )
+  );
 }
 
 function Shell() {
-  // 根据环境变量选择使用真实 API 或 Mock 引擎
-  if (!USE_REAL_API) useMockEngine()
-  const sim = useSim()
-  const [active, setActive] = useState<ViewKey>('world')
-  const [theme, setTheme] = useState<Theme>(() => {
-    // 从 localStorage 读取保存的主题
-    const saved = localStorage.getItem('theme') as Theme | null
-    return saved || 'dark'
-  })
+  if (!USE_REAL_API) useMockEngine();
+  const sim = useSim();
+  const { theme, toggleTheme } = useTheme();
+  const [active, setActive] = useState<ViewKey>('world');
 
-  // 主题切换时保存到 localStorage 并更新 data-theme 属性
-  const toggleTheme = () => {
-    setTheme(prev => {
-      const newTheme = prev === 'dark' ? 'light' : 'dark'
-      localStorage.setItem('theme', newTheme)
-      document.documentElement.setAttribute('data-theme', newTheme)
-      // 触发主题变化事件，让图表组件知道需要更新颜色
-      window.dispatchEvent(new Event('theme-changed'))
-      return newTheme
-    })
-  }
-
-  // 初始化时设置主题
+  // Initialize theme
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme)
-  }, [])
+    document.documentElement.setAttribute('data-theme', theme);
+  }, []);
 
   const status = useMemo(() => {
-    const run = sim.state.isRunning ? 'RUNNING' : 'PAUSED'
-    return `${run} · tick ${sim.state.tick} · x${sim.state.speed.toFixed(1)}`
-  }, [sim.state.isRunning, sim.state.speed, sim.state.tick])
+    const run = sim.state.isRunning ? 'RUNNING' : 'PAUSED';
+    return `${run} · tick ${sim.state.tick} · x${sim.state.speed.toFixed(1)}`;
+  }, [sim.state.isRunning, sim.state.speed, sim.state.tick]);
 
-  const navigationValue = useMemo(() => ({
-    activeView: active,
-    navigateTo: setActive
-  }), [active])
+  const navigationValue = useMemo(
+    () => ({
+      activeView: active,
+      navigateTo: setActive,
+    }),
+    [active]
+  );
 
-  const themeValue = useMemo(() => ({
-    theme,
-    toggleTheme
-  }), [theme])
+  const themeValue = useMemo(
+    () => ({
+      theme,
+      toggleTheme,
+    }),
+    [theme, toggleTheme]
+  );
 
   return (
     <NavigationContext.Provider value={navigationValue}>
@@ -106,28 +84,39 @@ function Shell() {
               </div>
 
               <div className="status">
-                <span className={`pill ${sim.state.isRunning ? 'pill--ok' : 'pill--warn'}`}>{status}</span>
+                <span className={`pill ${sim.state.isRunning ? 'pill--ok' : 'pill--warn'}`}>
+                  {status}
+                </span>
                 <ThemeToggleButton />
-                <button
-                  className="btn"
-                  onClick={() => sim.actions.toggleRun()}
-                >
+                <button className="btn" onClick={() => sim.actions.toggleRun()}>
                   {sim.state.isRunning ? 'Pause' : 'Run'}
                 </button>
               </div>
             </div>
 
             <nav className="tabs">
-              <button className={`tab ${active === 'workbench' ? 'tab--active' : ''}`} onClick={() => setActive('workbench')}>
+              <button
+                className={`tab ${active === 'workbench' ? 'tab--active' : ''}`}
+                onClick={() => setActive('workbench')}
+              >
                 Workbench 工作台
               </button>
-              <button className={`tab ${active === 'world' ? 'tab--active' : ''}`} onClick={() => setActive('world')}>
+              <button
+                className={`tab ${active === 'world' ? 'tab--active' : ''}`}
+                onClick={() => setActive('world')}
+              >
                 World 世界视图
               </button>
-              <button className={`tab ${active === 'feed' ? 'tab--active' : ''}`} onClick={() => setActive('feed')}>
+              <button
+                className={`tab ${active === 'feed' ? 'tab--active' : ''}`}
+                onClick={() => setActive('feed')}
+              >
                 Feed 信息流
               </button>
-              <button className={`tab ${active === 'replay' ? 'tab--active' : ''}`} onClick={() => setActive('replay')}>
+              <button
+                className={`tab ${active === 'replay' ? 'tab--active' : ''}`}
+                onClick={() => setActive('replay')}
+              >
                 System Log 系统日志
               </button>
             </nav>
@@ -142,14 +131,14 @@ function Shell() {
         </div>
       </ThemeContext.Provider>
     </NavigationContext.Provider>
-  )
+  );
 }
 
-export { useNavigation, useTheme }
+export { useNavigation, useThemeContext };
 export default function App() {
   return (
     <SimulationProvider>
       <Shell />
     </SimulationProvider>
-  )
+  );
 }

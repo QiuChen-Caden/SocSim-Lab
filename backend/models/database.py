@@ -1,5 +1,5 @@
 """
-Database models and connection management for extended OASIS schema.
+扩展 OASIS 模式的数据库模型和连接管理。
 """
 from __future__ import annotations
 
@@ -53,7 +53,7 @@ SCHEMA_DIR = osp.join(BASE_DIR, "schema")
 
 
 def get_db_path() -> str:
-    """Get the database file path."""
+    """获取数据库文件路径。"""
     env_db_path = os.environ.get("OASIS_DB_PATH")
     if env_db_path:
         if osp.isabs(env_db_path):
@@ -88,9 +88,8 @@ def get_db_path() -> str:
     return db_path
 
 
-@contextmanager
 def _configure_sqlite(conn: sqlite3.Connection) -> None:
-    """Apply SQLite pragmas for better concurrency."""
+    """应用 SQLite pragma 以提高并发性。"""
     try:
         conn.execute("PRAGMA journal_mode=WAL;")
         conn.execute("PRAGMA synchronous=NORMAL;")
@@ -101,11 +100,12 @@ def _configure_sqlite(conn: sqlite3.Connection) -> None:
         pass
 
 
+@contextmanager
 def get_db_connection():
-    """Context manager for database connections."""
+    """数据库连接的上下文管理器。"""
     db_path = get_db_path()
     conn = sqlite3.connect(db_path, timeout=30)
-    conn.row_factory = sqlite3.Row  # Enable column access by name
+    conn.row_factory = sqlite3.Row  # 启用按名称访问列
     _configure_sqlite(conn)
     try:
         yield conn
@@ -115,7 +115,7 @@ def get_db_connection():
 
 @contextmanager
 def get_db_cursor():
-    """Context manager for database cursors."""
+    """数据库游标的上下文管理器。"""
     with get_db_connection() as conn:
         cursor = conn.cursor()
         try:
@@ -127,10 +127,10 @@ def get_db_cursor():
 
 
 def init_db():
-    """Initialize the database with all schemas."""
-    # Try standalone initialization first (doesn't require OASIS)
+    """使用所有模式初始化数据库。"""
+    # 首先尝试独立初始化（不需要 OASIS）
     try:
-        # Import the standalone init module
+        # 导入独立初始化模块
         standalone_init_path = osp.join(osp.dirname(osp.dirname(__file__)), "init_db_standalone.py")
         if osp.exists(standalone_init_path):
             import importlib.util
@@ -142,15 +142,15 @@ def init_db():
     except Exception as e:
         print(f"Standalone DB init failed, trying OASIS: {e}")
 
-    # Fall back to OASIS database creation
+    # 回退到 OASIS 数据库创建
     import sys
     sys.path.insert(0, osp.join(osp.dirname(osp.dirname(__file__)), "../oasis-main"))
     from oasis.social_platform.database import create_db as create_oasis_db
 
-    # Create OASIS base tables
+    # 创建 OASIS 基础表
     create_oasis_db(get_db_path())
 
-    # Create extended tables
+    # 创建扩展表
     schema_path = osp.join(SCHEMA_DIR, "extended_user.sql")
     if osp.exists(schema_path):
         with open(schema_path, "r") as f:
@@ -159,14 +159,14 @@ def init_db():
         with get_db_cursor() as cursor:
             cursor.executescript(schema_sql)
 
-    # Initialize simulation state singleton
+    # 初始化仿真状态单例
     with get_db_cursor() as cursor:
         cursor.execute("""
             INSERT OR IGNORE INTO simulation_state (id, current_tick, is_running, speed, config)
             VALUES (1, 0, 0, 1.0, ?)
         """, (json.dumps(SimulationConfig().to_dict()),))
 
-        # Create OASIS post sync tracking table
+        # 创建 OASIS 帖子同步跟踪表
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS oasis_post_sync (
                 oasis_post_id INTEGER PRIMARY KEY,
@@ -178,7 +178,7 @@ def init_db():
 
 
 def _row_get(row: sqlite3.Row, key: str, default=None):
-    """Helper to get value from sqlite3.Row with default."""
+    """辅助函数：从 sqlite3.Row 获取值，支持默认值。"""
     try:
         val = row[key]
         if val is None and default is not None:
@@ -189,8 +189,8 @@ def _row_get(row: sqlite3.Row, key: str, default=None):
 
 
 def row_to_agent_profile(row: sqlite3.Row) -> AgentProfile:
-    """Convert a database row to AgentProfile."""
-    # Get identity fields from the query
+    """将数据库行转换为 AgentProfile。"""
+    # 从查询中获取身份字段
     age_band = _row_get(row, "age_band", "unknown")
     gender = _row_get(row, "gender", "unknown")
     country = _row_get(row, "country", "")
@@ -254,7 +254,7 @@ def row_to_agent_profile(row: sqlite3.Row) -> AgentProfile:
 
 
 def get_all_agents() -> list[AgentProfile]:
-    """Get all agents from the database."""
+    """从数据库获取所有代理。"""
     with get_db_cursor() as cursor:
         cursor.execute("""
             SELECT
@@ -284,7 +284,7 @@ def get_all_agents() -> list[AgentProfile]:
 
 
 def get_agent_by_id(agent_id: int) -> Optional[AgentProfile]:
-    """Get a single agent by ID."""
+    """通过 ID 获取单个代理。"""
     with get_db_cursor() as cursor:
         cursor.execute("""
             SELECT
@@ -317,7 +317,7 @@ def get_agent_by_id(agent_id: int) -> Optional[AgentProfile]:
 
 
 def get_agents_by_ids(agent_ids: list[int]) -> list[AgentProfile]:
-    """Get multiple agents by IDs."""
+    """通过 ID 列表获取多个代理。"""
     if not agent_ids:
         return []
 
@@ -352,15 +352,15 @@ def get_agents_by_ids(agent_ids: list[int]) -> list[AgentProfile]:
 
 
 def save_agent_profile(profile: AgentProfile) -> None:
-    """Save or update an agent profile in the database."""
+    """在数据库中保存或更新代理画像。"""
     with get_db_cursor() as cursor:
-        # Update base user table
+        # 更新基础用户表
         cursor.execute("""
             INSERT OR REPLACE INTO user (user_id, user_name, name, bio)
             VALUES (?, ?, ?, ?)
         """, (profile.id, profile.identity.username, profile.name, ""))
 
-        # Update extended tables
+        # 更新扩展表
         cursor.execute("""
             INSERT OR REPLACE INTO user_big_five (user_id, O, C, E, A, N)
             VALUES (?, ?, ?, ?, ?, ?)
@@ -408,7 +408,7 @@ def save_agent_profile(profile: AgentProfile) -> None:
 
 
 def get_feed_posts(limit: int = 100, offset: int = 0) -> list[FeedPost]:
-    """Get feed posts from the database."""
+    """从数据库获取信息流帖子。"""
     with get_db_cursor() as cursor:
         cursor.execute("""
             SELECT
@@ -448,10 +448,21 @@ def get_feed_posts(limit: int = 100, offset: int = 0) -> list[FeedPost]:
 
 
 def save_feed_post(post: FeedPost) -> str:
-    """Save a feed post to the database and return persisted post id."""
+    """将信息流帖子保存到数据库并返回持久化的帖子 ID。"""
     with get_db_cursor() as cursor:
         import datetime
         created_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        # 确保 user 存在（如果不存在则创建默认记录）
+        cursor.execute("""
+            SELECT user_id FROM user WHERE user_id = ?
+        """, (post.author_id,))
+        if not cursor.fetchone():
+            # 创建默认 user 记录
+            cursor.execute("""
+                INSERT OR IGNORE INTO user (user_id, user_name, name)
+                VALUES (?, ?, ?)
+            """, (post.author_id, f"Agent_{post.author_id}", f"Agent_{post.author_id}"))
 
         cursor.execute("""
             INSERT INTO post (user_id, content, created_at, num_likes)
@@ -465,7 +476,7 @@ def save_feed_post(post: FeedPost) -> str:
             VALUES (?, ?)
         """, (post_id, post.emotion))
 
-        # Save tick information
+        # 保存 tick 信息
         cursor.execute("""
             INSERT OR REPLACE INTO post_tick (post_id, tick)
             VALUES (?, ?)
@@ -475,21 +486,21 @@ def save_feed_post(post: FeedPost) -> str:
 
 
 def get_feed_post_by_id(post_id: str) -> Optional[FeedPost]:
-    """Get a feed post by its ID."""
+    """通过 ID 获取信息流帖子。"""
     with get_db_cursor() as cursor:
-        # Check if it's an OASIS-prefixed ID (check the tracking table)
+        # 检查是否为 OASIS 前缀的 ID（检查跟踪表）
         if post_id.startswith("oasis_"):
-            # Extract the original OASIS post ID
+            # 提取原始 OASIS 帖子 ID
             try:
                 oasis_id = int(post_id.replace("oasis_", ""))
-                # Check if this OASIS post has been synced
+                # 检查此 OASIS 帖子是否已同步
                 cursor.execute("""
                     SELECT feed_post_id FROM oasis_post_sync WHERE oasis_post_id = ?
                 """, (oasis_id,))
                 row = cursor.fetchone()
                 if not row:
-                    return None  # Not synced yet
-                # Get the actual feed post
+                    return None  # 尚未同步
+                # 获取实际的信息流帖子
                 feed_id = row[0]
                 cursor.execute("""
                     SELECT
@@ -503,7 +514,7 @@ def get_feed_post_by_id(post_id: str) -> Optional[FeedPost]:
                 post_row = cursor.fetchone()
                 if not post_row:
                     return None
-                # Get author info
+                # 获取作者信息
                 cursor.execute("""
                     SELECT user_name, name
                     FROM user
@@ -523,7 +534,7 @@ def get_feed_post_by_id(post_id: str) -> Optional[FeedPost]:
             except ValueError:
                 return None
 
-        # Convert string ID to integer for regular posts
+        # 将字符串 ID 转换为整数以用于常规帖子
         try:
             id_int = int(post_id)
         except ValueError:
@@ -564,18 +575,18 @@ def get_feed_post_by_id(post_id: str) -> Optional[FeedPost]:
 
 
 def save_oasis_feed_post(oasis_post_id: int, post: FeedPost) -> bool:
-    """Save an OASIS post to the feed database with tracking."""
+    """将 OASIS 帖子保存到信息流数据库并进行跟踪。"""
     with get_db_cursor() as cursor:
         try:
-            # Check if this OASIS post was already synced
+            # 检查此 OASIS 帖子是否已经同步
             cursor.execute("""
                 SELECT feed_post_id FROM oasis_post_sync WHERE oasis_post_id = ?
             """, (oasis_post_id,))
             existing = cursor.fetchone()
             if existing:
-                return False  # Already synced
+                return False  # 已同步
 
-            # Save the post to the feed database
+            # 将帖子保存到信息流数据库
             import datetime
             created_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -596,7 +607,7 @@ def save_oasis_feed_post(oasis_post_id: int, post: FeedPost) -> bool:
                 VALUES (?, ?)
             """, (feed_post_id, post.tick))
 
-            # Record the mapping
+            # 记录映射
             cursor.execute("""
                 INSERT INTO oasis_post_sync (oasis_post_id, feed_post_id)
                 VALUES (?, ?)
@@ -609,14 +620,14 @@ def save_oasis_feed_post(oasis_post_id: int, post: FeedPost) -> bool:
 
 
 def get_simulation_state() -> SimulationState:
-    """Get the current simulation state from the database."""
+    """从数据库获取当前仿真状态。"""
     with get_db_cursor() as cursor:
         cursor.execute("SELECT * FROM simulation_state WHERE id = 1")
         row = cursor.fetchone()
 
         if row:
             config = SimulationConfig.from_dict(json.loads(row["config"] or "{}"))
-            # Deserialize agents from JSON if available
+            # 如果可用，从 JSON 反序列化代理
             agents = {}
             agents_json = _row_get(row, "agents_json")
             if agents_json:
@@ -637,13 +648,13 @@ def get_simulation_state() -> SimulationState:
 
 
 def save_simulation_state(state: SimulationState) -> None:
-    """Save the simulation state to the database."""
+    """将仿真状态保存到数据库。"""
     with get_db_cursor() as cursor:
-        # First, try to add the agents_json column if it doesn't exist
+        # 首先，尝试添加 agents_json 列（如果不存在）
         try:
             cursor.execute("ALTER TABLE simulation_state ADD COLUMN agents_json TEXT")
         except:
-            pass  # Column already exists
+            pass  # 列已存在
 
         cursor.execute("""
             UPDATE simulation_state

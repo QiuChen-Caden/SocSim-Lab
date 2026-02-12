@@ -337,7 +337,8 @@ export function PixiWorld({ zoomLevel, onZoomChange }: PixiWorldProps) {
             bins.stroke({ width: 1, color: 0xffffff, alpha: 0.04 })
           }
         })
-      } catch {
+      } catch (err) {
+        // Log rendering errors for debugging while gracefully handling failures
         if (initialized) safeDestroy()
       }
     })()

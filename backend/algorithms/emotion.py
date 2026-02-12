@@ -1,7 +1,7 @@
 """
-Emotion analysis for posts and agent states.
+帖子情感分析和代理状态情感分析。
 
-Provides emotion scoring from text content using various methods.
+使用各种方法从文本内容中提供情感评分。
 """
 import re
 import random
@@ -12,11 +12,11 @@ from collections import defaultdict
 
 @dataclass
 class EmotionScore:
-    """Emotion score result."""
-    valence: float  # -1 (negative) to 1 (positive)
-    arousal: float  # 0 (calm) to 1 (excited)
-    dominance: float  # 0 (submissive) to 1 (dominant)
-    confidence: float  # 0 to 1
+    """情感评分结果。"""
+    valence: float  # -1（消极）到 1（积极）
+    arousal: float  # 0（平静）到 1（兴奋）
+    dominance: float  # 0（顺从）到 1（支配）
+    confidence: float  # 0 到 1
 
     def to_dict(self) -> dict:
         return {
@@ -27,9 +27,9 @@ class EmotionScore:
         }
 
 
-# Emotion lexicons (simplified, could be replaced with proper lexicons)
+# 情感词典（简化版，可替换为标准词典）
 POSITIVE_WORDS = {
-    # Strong positive
+    # 强积极
     "amazing", "awesome", "excellent", "fantastic", "great", "love", "wonderful",
     "brilliant", "perfect", "beautiful", "happy", "joy", "excited", "delighted",
     "thrilled", "ecstatic", "pleased", "glad", "grateful", "blessed", "fortunate",
@@ -42,7 +42,7 @@ POSITIVE_WORDS = {
 }
 
 NEGATIVE_WORDS = {
-    # Strong negative
+    # 强消极
     "terrible", "horrible", "awful", "hate", "disgusting", "dreadful", "worst",
     "abysmal", "appalling", "atrocious", "dismal", "frightening", "horrific",
     "outraged", "furious", "disgusted", "devastated", "miserable", "suffering",
@@ -111,13 +111,13 @@ DISGUST_WORDS = {
 
 class LexiconEmotionAnalyzer:
     """
-    Emotion analyzer using word lexicons.
+    使用词汇词典的情感分析器。
 
-    Simple but fast emotion classification based on word presence.
+    基于词汇出现的简单但快速的情感分类。
     """
 
     def __init__(self):
-        """Initialize the analyzer."""
+        """初始化分析器。"""
         self.positive_words = POSITIVE_WORDS
         self.negative_words = NEGATIVE_WORDS
         self.intensifiers = INTENSIFIERS
@@ -132,22 +132,22 @@ class LexiconEmotionAnalyzer:
         }
 
     def _tokenize(self, text: str) -> list[str]:
-        """Simple tokenization."""
-        # Convert to lowercase
+        """简单分词。"""
+        # 转换为小写
         text = text.lower()
-        # Replace URLs, mentions, hashtags with placeholders
+        # 将 URL、提及、标签替换为占位符
         text = re.sub(r'http\S+', ' ', text)
         text = re.sub(r'@\w+', ' ', text)
         text = re.sub(r'#\w+', ' ', text)
-        # Remove punctuation but keep apostrophes for contractions
+        # 删除标点符号但保留缩略词中的撇号
         text = re.sub(r'[^\w\s\']', ' ', text)
-        # Split on whitespace
+        # 按空白分割
         tokens = text.split()
         return tokens
 
     def _detect_negation(self, tokens: list[str], index: int) -> bool:
-        """Check if a word is negated by looking at previous words."""
-        # Check previous 3 words for negators
+        """通过查看前面的词来检查词是否被否定。"""
+        # 检查前 3 个词中的否定词
         start = max(0, index - 3)
         for i in range(start, index):
             if tokens[i] in self.negators or tokens[i].endswith("n't"):
@@ -155,8 +155,8 @@ class LexiconEmotionAnalyzer:
         return False
 
     def _get_intensifier(self, tokens: list[str], index: int) -> float:
-        """Get intensifier strength from previous words."""
-        # Check previous 2 words for intensifiers
+        """从前面的词获取增强词强度。"""
+        # 检查前 2 个词中的增强词
         start = max(0, index - 2)
         for i in range(start, index):
             if tokens[i] in self.intensifiers:
@@ -165,13 +165,13 @@ class LexiconEmotionAnalyzer:
 
     def analyze(self, text: str) -> EmotionScore:
         """
-        Analyze emotion in text.
+        分析文本中的情感。
 
-        Args:
-            text: Text to analyze
+        参数：
+            text: 要分析的文本
 
-        Returns:
-            EmotionScore with valence, arousal, dominance
+        返回：
+            包含 valence、arousal、dominance 的 EmotionScore
         """
         if not text:
             return EmotionScore(valence=0.0, arousal=0.0, dominance=0.5, confidence=0.0)
@@ -186,7 +186,7 @@ class LexiconEmotionAnalyzer:
             is_negated = self._detect_negation(tokens, i)
             intensifier = self._get_intensifier(tokens, i)
 
-            # Check sentiment
+            # 检查情感
             if token in self.positive_words:
                 score = 1.0 * intensifier
                 if is_negated:
@@ -201,30 +201,30 @@ class LexiconEmotionAnalyzer:
                 else:
                     negative_score += score
 
-            # Check specific emotions
+            # 检查特定情感
             for emotion, words in self.emotion_words.items():
                 if token in words:
                     emotion_counts[emotion] += 1 * intensifier
 
-        # Normalize scores
+        # 归一化分数
         total_words = len(tokens)
         if total_words > 0:
             positive_score /= total_words
             negative_score /= total_words
 
-        # Calculate valence (-1 to 1)
+        # 计算 valence（-1 到 1）
         valence = positive_score - negative_score
-        valence = max(-1.0, min(1.0, valence * 5))  # Scale up
+        valence = max(-1.0, min(1.0, valence * 5))  # 放大
 
-        # Calculate arousal based on emotion intensity
+        # 根据情感强度计算 arousal
         arousal = sum(emotion_counts.values()) / max(total_words, 1) * 2
         arousal = min(1.0, arousal)
 
-        # Calculate dominance (positive emotions -> higher dominance)
+        # 计算 dominance（积极情感 -> 更高的支配度）
         dominance = 0.5 + (valence * 0.3)
         dominance = max(0.0, min(1.0, dominance))
 
-        # Confidence based on amount of emotion words found
+        # 根据找到的情感词数量计算置信度
         total_emotion_words = sum(emotion_counts.values()) + positive_score * 5 + negative_score * 5
         confidence = min(1.0, total_emotion_words / max(total_words * 0.1, 1))
 
@@ -237,13 +237,13 @@ class LexiconEmotionAnalyzer:
 
     def get_emotion_category(self, text: str) -> str:
         """
-        Get the primary emotion category for text.
+        获取文本的主要情感类别。
 
-        Returns: one of 'angry', 'fearful', 'happy', 'sad', 'surprised', 'calm'
+        返回：'angry'、'fearful'、'happy'、'sad'、'surprised'、'calm' 之一
         """
         score = self.analyze(text)
 
-        # Determine primary emotion
+        # 确定主要情感
         if score.valence < -0.3 and score.arousal > 0.5:
             return "angry"
         elif score.valence < -0.3:
@@ -260,11 +260,11 @@ class LexiconEmotionAnalyzer:
 
 class RuleBasedEmotionAnalyzer:
     """
-    Rule-based emotion analyzer with more sophisticated patterns.
+    基于规则的情感分析器，具有更复杂的模式。
     """
 
     def __init__(self):
-        """Initialize the analyzer."""
+        """初始化分析器。"""
         self.lexicon_analyzer = LexiconEmotionAnalyzer()
 
         # Emotion patterns (regex)
@@ -295,7 +295,7 @@ class RuleBasedEmotionAnalyzer:
 
     def analyze(self, text: str) -> EmotionScore:
         """
-        Analyze emotion using rules and lexicon.
+        使用规则和词典分析情感。
         """
         # Start with lexicon analysis
         score = self.lexicon_analyzer.analyze(text)
@@ -339,17 +339,17 @@ class RuleBasedEmotionAnalyzer:
 
 class TransformerEmotionAnalyzer:
     """
-    Emotion analyzer using transformer models (optional, slower but more accurate).
+    使用 transformer 模型的情感分析器（可选，较慢但更准确）。
 
-    Requires: pip install transformers torch
+    需要：pip install transformers torch
     """
 
     def __init__(self, model_name: str = "cardiffnlp/twitter-roberta-base-sentiment-latest"):
         """
-        Initialize the transformer analyzer.
+        初始化 transformer 分析器。
 
-        Args:
-            model_name: HuggingFace model name for sentiment analysis
+        参数：
+            model_name：用于情感分析的 HuggingFace 模型名称
         """
         self.model_name = model_name
         self._model = None
@@ -357,7 +357,7 @@ class TransformerEmotionAnalyzer:
         self._loaded = False
 
     def _load_model(self):
-        """Lazy load the model."""
+        """延迟加载模型。"""
         if self._loaded:
             return
 
@@ -369,17 +369,17 @@ class TransformerEmotionAnalyzer:
             self._model = AutoModelForSequenceClassification.from_pretrained(self.model_name)
             self._loaded = True
         except ImportError:
-            # Fall back to rule-based if transformers not available
+            # 如果 transformers 不可用，回退到基于规则的分析器
             self._loaded = False
 
     def analyze(self, text: str) -> EmotionScore:
         """
-        Analyze emotion using transformer model.
+        使用 transformer 模型分析情感。
         """
         self._load_model()
 
         if not self._loaded or not text:
-            # Fall back to rule-based
+            # 回退到基于规则的分析器
             analyzer = RuleBasedEmotionAnalyzer()
             return analyzer.analyze(text)
 
@@ -413,7 +413,7 @@ class TransformerEmotionAnalyzer:
             )
 
         except Exception as e:
-            # Fall back on error
+            # 回退到基于规则的分析器
             analyzer = RuleBasedEmotionAnalyzer()
             return analyzer.analyze(text)
 
@@ -423,7 +423,7 @@ _default_analyzer = None
 
 
 def get_default_analyzer() -> RuleBasedEmotionAnalyzer:
-    """Get the default emotion analyzer."""
+    """获取默认情感分析器。"""
     global _default_analyzer
     if _default_analyzer is None:
         _default_analyzer = RuleBasedEmotionAnalyzer()
@@ -432,14 +432,14 @@ def get_default_analyzer() -> RuleBasedEmotionAnalyzer:
 
 def analyze_emotion(text: str, method: str = "rule") -> EmotionScore:
     """
-    Analyze emotion in text.
+    分析文本中的情感。
 
-    Args:
-        text: Text to analyze
-        method: Analysis method ('lexicon', 'rule', 'transformer')
+    参数：
+        text: 要分析的文本
+        method: 分析方法（'lexicon'、'rule'、'transformer'）
 
-    Returns:
-        EmotionScore with valence, arousal, dominance
+    返回：
+        包含 valence、arousal、dominance 的 EmotionScore
     """
     if method == "lexicon":
         analyzer = LexiconEmotionAnalyzer()
@@ -455,15 +455,15 @@ def analyze_emotion(text: str, method: str = "rule") -> EmotionScore:
 
 def get_emotion_value(text: str) -> float:
     """
-    Get a single emotion value from text (-1 to 1).
+    从文本获取单个情感值（-1 到 1）。
 
-    This is the main function used by the frontend.
+    这是前端使用的主要函数。
 
-    Args:
-        text: Text to analyze
+    参数：
+        text: 要分析的文本
 
-    Returns:
-        Float from -1 (most negative) to 1 (most positive)
+    返回：
+        从 -1（最消极）到 1（最积极）的浮点数
     """
     score = analyze_emotion(text)
     return score.valence
@@ -471,14 +471,14 @@ def get_emotion_value(text: str) -> float:
 
 def get_emotion_from_content(content: str, fallback: float = 0.0) -> float:
     """
-    Get emotion value from content, with fallback.
+    从内容获取情感值，支持后备值。
 
-    Args:
-        content: Content text
-        fallback: Fallback value if analysis fails
+    参数：
+        content: 内容文本
+        fallback: 如果分析失败时的后备值
 
-    Returns:
-        Emotion value -1 to 1
+    返回：
+        情感值 -1 到 1
     """
     if not content or not content.strip():
         return fallback
@@ -491,7 +491,7 @@ def get_emotion_from_content(content: str, fallback: float = 0.0) -> float:
 
 # Sentiment label mapping
 def sentiment_from_valence(valence: float) -> str:
-    """Convert valence to sentiment label."""
+    """将 valence 转换为情感标签。"""
     if valence > 0.5:
         return "happy"
     elif valence > 0.2:
@@ -512,29 +512,29 @@ def simulate_mood_change(
     neuroticism: float = 0.5,
 ) -> float:
     """
-    Simulate mood change based on external stimulus and personality.
+    基于外部刺激和人格模拟情绪变化。
 
-    Args:
-        current_mood: Current mood value (-1 to 1)
-        external_stimulus: External stimulus (-1 to 1)
-        openness: Openness trait (0 to 1) - affects responsiveness
-        neuroticism: Neuroticism trait (0 to 1) - affects negative bias
+    参数：
+        current_mood: 当前情绪值（-1 到 1）
+        external_stimulus: 外部刺激（-1 到 1）
+        openness: 开放性特质（0 到 1）- 影响响应性
+        neuroticism: 神经质特质（0 到 1）- 影响负面偏向
 
-    Returns:
-        New mood value
+    返回：
+        新情绪值
     """
-    # Neuroticism increases sensitivity to negative stimuli
+    # 神经质增加对消极刺激的敏感性
     if external_stimulus < 0:
         stimulus_strength = abs(external_stimulus) * (1 + neuroticism * 0.5)
         change = -stimulus_strength
     else:
         change = external_stimulus
 
-    # Openness affects how much mood changes
+    # 开放性影响情绪变化程度
     change *= (0.3 + openness * 0.4)
 
-    # Apply change with decay (mood tends toward neutral)
+    # 应用变化并衰减（情绪趋向中性）
     new_mood = current_mood * 0.9 + change * 0.1
 
-    # Clamp to valid range
+    # 限制在有效范围内
     return max(-1.0, min(1.0, new_mood))

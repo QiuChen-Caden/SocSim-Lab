@@ -8,12 +8,15 @@ import { useEffect, useRef, useCallback } from 'react'
 import { useSim } from './SimulationProvider'
 import api, { wsClient } from '../api'
 import type { WebSocketMessage } from '../types'
+import { createLogger } from '../utils/logger'
+
+const logger = createLogger('RealEngine')
 
 // 是否使用真实 API 或模拟 Whether to use real API or mock
 const USE_REAL_API = import.meta.env.VITE_USE_REAL_API === 'true'
 
-// 暂时禁用 WebSocket，使用 HTTP 轮询
-const USE_WEBSOCKET = false
+// 使用环境变量控制 WebSocket，默认启用以获得实时更新
+const USE_WEBSOCKET = import.meta.env.VITE_USE_WEBSOCKET !== 'false'
 
 /**
  * 使用真实后端 API 进行模拟的 Hook Hook that uses the real backend API for simulation.
@@ -37,7 +40,7 @@ export function useRealEngine() {
       // 并行获取所有智能体状态（比顺序快得多） Fetch all agent states in parallel (much faster than sequential)
       const agentStatePromises = agents.map(agent =>
         api.agents.getState(agent.id).catch(err => {
-          console.warn(`[RealEngine] Failed to get state for agent ${agent.id}:`, err)
+          logger.warn(`Failed to get state for agent ${agent.id}:`, err)
           // 错误时返回默认状态 Return default state on error
           return { mood: 0.5, stance: 0, resources: 0.5, lastAction: 'error' }
         })
@@ -67,10 +70,10 @@ export function useRealEngine() {
         sim.actions.patchAgent(Number(id), agent.state)
       }
 
-      console.log('[RealEngine] Initialized from backend with real agent states')
+      logger.info('Initialized from backend with real agent states')
       isInitializedRef.current = true
     } catch (error) {
-      console.error('[RealEngine] Failed to initialize:', error)
+      logger.error('Failed to initialize:', error)
     }
   }, [sim])
 
@@ -113,18 +116,18 @@ export function useRealEngine() {
 
       case 'simulation_state': {
         // 完整状态更新 - 可能触发重新初始化 Full state update - could trigger a re-init
-        console.log('[RealEngine] Received full state update')
+        logger.debug('Received full state update')
         break
       }
 
       case 'error': {
-        console.error('[RealEngine] Server error:', message.error)
+        logger.error('Server error:', message.error)
         sim.dispatch({ type: 'push_log', level: 'error', tick: sim.state.tick, text: `Server: ${message.error}` })
         break
       }
 
       case 'connected':
-        console.log('[RealEngine] WebSocket connected, client ID:', message.clientId)
+        logger.info('WebSocket connected, client ID:', message.clientId)
         break
 
       case 'pong':
@@ -132,7 +135,7 @@ export function useRealEngine() {
         break
 
       default:
-        console.log('[RealEngine] Unknown message type:', (message as { type: string }).type)
+        logger.warn('Unknown message type:', (message as { type: string }).type)
     }
   }, [sim])
 
@@ -167,7 +170,7 @@ export function useRealEngine() {
           selectedAgentId: sim.state.selectedAgentId,
         })
       } catch (error) {
-        console.error('[RealEngine] Sync/poll failed:', error)
+        logger.error('Sync/poll failed:', error)
       }
     }, 2000) // 每 2 秒轮询一次以减少负载 Poll every 2 seconds to reduce load
 
@@ -181,7 +184,7 @@ export function useRealEngine() {
   // WebSocket 连接（暂时禁用） WebSocket connection (temporarily disabled)
   useEffect(() => {
     if (!USE_WEBSOCKET) {
-      console.log('[RealEngine] WebSocket disabled, using HTTP polling only')
+      logger.info('WebSocket disabled, using HTTP polling only')
       return
     }
 
@@ -233,7 +236,7 @@ export function useRealEngine() {
           await api.simulation.stop()
         }
       } catch (error) {
-        console.error('[RealEngine] Control failed:', error)
+        logger.error('Control failed:', error)
       }
     }
 
@@ -259,9 +262,9 @@ export function useEngine() {
   // Import mock engine dynamically
   useEffect(() => {
     if (!USE_REAL_API) {
-      console.log('[Engine] Using mock engine (VITE_USE_REAL_API is not set)')
+      logger.info('Using mock engine (VITE_USE_REAL_API is not set)')
     } else {
-      console.log('[Engine] Using real API backend')
+      logger.info('Using real API backend')
     }
   }, [])
 

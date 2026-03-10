@@ -89,7 +89,7 @@ class Settings(BaseSettings):
     debug: bool = True
     cors_origins: List[str] = ["http://localhost:5173", "http://localhost:5174", "http://localhost:5175", "http://localhost:5176", "http://localhost:3000"]
     use_oasis: bool = True  # 启用 OASIS 仿真
-    log_file: str = "C:\\Users\\Lenovo\\Desktop\\SocSim-Lab\\backend_launch_check.err.log"  # 固定日志路径
+    log_file: Optional[str] = None  # 默认为 None，使用相对路径
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -103,8 +103,10 @@ load_dotenv(_root_env, override=False)
 settings = Settings()
 
 # ============= Logging Configuration =============
-# Configure logging to write to fixed file path
-_log_file_path = Path(settings.log_file)
+# Configure logging to write to file path (use relative path if not specified)
+_log_file_path = Path(settings.log_file) if settings.log_file else Path(__file__).parent / "backend_launch_check.err.log"
+if not _log_file_path.is_absolute():
+    _log_file_path = Path(__file__).parent / _log_file_path
 _log_file_path.parent.mkdir(parents=True, exist_ok=True)
 
 # Create custom formatter
@@ -191,8 +193,8 @@ def _add_system_log(level: str, message: str, category: str = "system") -> None:
     # 向 WebSocket 客户端广播
     try:
         asyncio.create_task(ws_manager.broadcast_system_log(log_entry))
-    except:
-        pass  # WebSocket 尚未就绪
+    except (RuntimeError, asyncio.CancelledError):
+        pass  # WebSocket 尚未就绪，静默忽略特定异常
 
     # 同时打印到控制台以便调试
     level_icon = {"info": "", "ok": "✓", "error": "✗", "warn": "⚠"}.get(level, "")
@@ -912,8 +914,9 @@ async def simulation_ticker():
                                     agent = get_agent_by_id(agent_id)
                                     openness = agent.psychometrics.big_five.O
                                     neuroticism = agent.psychometrics.big_five.N
-                                except:
-                                    openness =  0.5
+                                except (AttributeError, TypeError):
+                                    # Agent not found or missing psychometrics data
+                                    openness = 0.5
                                     neuroticism = 0.5
 
                                 new_mood = simulate_mood_change(

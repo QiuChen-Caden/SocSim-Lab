@@ -432,7 +432,7 @@ def get_feed_posts(limit: int = 100, offset: int = 0) -> list[FeedPost]:
                 import time
                 try:
                     tick = int(time.mktime(time.strptime(row["created_at"], "%Y-%m-%d %H:%M:%S")))
-                except:
+                except (ValueError, TypeError, OSError):
                     tick = 0  # Fallback if timestamp parsing fails
 
             posts.append(FeedPost(
@@ -633,7 +633,7 @@ def get_simulation_state() -> SimulationState:
             if agents_json:
                 try:
                     agents = json.loads(agents_json)
-                except:
+                except json.JSONDecodeError:
                     agents = {}
 
             return SimulationState(
@@ -653,7 +653,7 @@ def save_simulation_state(state: SimulationState) -> None:
         # 首先，尝试添加 agents_json 列（如果不存在）
         try:
             cursor.execute("ALTER TABLE simulation_state ADD COLUMN agents_json TEXT")
-        except:
+        except sqlite3.OperationalError:
             pass  # 列已存在
 
         cursor.execute("""

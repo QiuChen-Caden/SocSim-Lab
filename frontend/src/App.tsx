@@ -6,6 +6,7 @@ import { WorkbenchView } from './views/Workbench';
 import { WorldView } from './views/WorldView';
 import { FeedView } from './views/FeedView';
 import { ReplayView } from './views/ReplayView';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 
 const USE_REAL_API = import.meta.env.VITE_USE_REAL_API === 'true';
@@ -123,10 +124,12 @@ function Shell() {
           </header>
 
           <main className="content">
-            {active === 'workbench' && <WorkbenchView />}
-            {active === 'world' && <WorldView />}
-            {active === 'feed' && <FeedView />}
-            {active === 'replay' && <ReplayView />}
+            <ErrorBoundary title={`${active.charAt(0).toUpperCase() + active.slice(1)} View Error`}>
+              {active === 'workbench' && <WorkbenchView />}
+              {active === 'world' && <WorldView />}
+              {active === 'feed' && <FeedView />}
+              {active === 'replay' && <ReplayView />}
+            </ErrorBoundary>
           </main>
         </div>
       </ThemeContext.Provider>

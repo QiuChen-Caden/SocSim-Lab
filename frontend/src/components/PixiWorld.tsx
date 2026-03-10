@@ -1,6 +1,6 @@
-import { Application, Graphics, Sprite, Texture } from 'pixi.js'
+import { Application, FederatedPointerEvent, Graphics, Sprite, Texture } from 'pixi.js'
 import { Viewport } from 'pixi-viewport'
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useSim } from '../app/SimulationProvider'
 import { clamp, hash01, posAtTick } from '../app/util'
 
@@ -71,6 +71,15 @@ export function PixiWorld({ zoomLevel, onZoomChange }: PixiWorldProps) {
   const worldSizeRef = useRef(sim.state.config.worldSize)
   const agentMetaRef = useRef<Record<number, { tier?: string; stance?: number }>>({})
 
+  // Memoize agent IDs to avoid recalculation
+  const agentIds = useMemo(
+    () => Object.keys(sim.state.agents).map(Number),
+    [sim.state.agents]
+  )
+
+  // Memoize world size
+  const worldSize = useMemo(() => sim.state.config.worldSize, [sim.state.config.worldSize])
+
   useEffect(() => {
     tickRef.current = sim.state.tick
     selectedRef.current = sim.state.selectedAgentId
@@ -88,7 +97,7 @@ export function PixiWorld({ zoomLevel, onZoomChange }: PixiWorldProps) {
       }
     }
     agentMetaRef.current = meta
-  }, [sim.state.agents])
+  }, [agentIds]) // Use memoized agentIds instead of sim.state.agents
 
   useEffect(() => {
     const viewport = viewportRef.current
@@ -221,13 +230,13 @@ export function PixiWorld({ zoomLevel, onZoomChange }: PixiWorldProps) {
         }
 
         viewport.eventMode = 'static'
-        viewport.on('pointertap', (ev: any) => {
+        viewport.on('pointertap', (ev: FederatedPointerEvent) => {
           const p = viewport.toWorld(ev.global)
           selectNearest(p.x, p.y)
         })
 
-        const agentIds = Object.keys(sim.state.agents).map(Number)
-        for (const agentId of agentIds) {
+        const initialAgentIds = agentIds
+        for (const agentId of initialAgentIds) {
           const s = new Sprite(dotTexture)
           s.anchor.set(0.5)
           s.roundPixels = true
@@ -366,7 +375,6 @@ export function PixiWorld({ zoomLevel, onZoomChange }: PixiWorldProps) {
     const dotTexture = dotTextureRef.current
     if (!dotTexture) return
 
-    const agentIds = Object.keys(sim.state.agents).map(Number)
     const existing = spritesRef.current.length
     if (existing === agentIds.length) return
 
@@ -380,21 +388,21 @@ export function PixiWorld({ zoomLevel, onZoomChange }: PixiWorldProps) {
       const s = new Sprite(dotTexture)
       s.anchor.set(0.5)
       s.roundPixels = true
-      const p = posAtTick(agentId, sim.state.tick, sim.state.config.worldSize)
+      const p = posAtTick(agentId, sim.state.tick, worldSize)
       s.x = p.x
       s.y = p.y
       s.alpha = 0.85
       viewport.addChild(s)
       spritesRef.current.push({ id: agentId, sprite: s })
     }
-  }, [sim.state.agents, sim.state.config.worldSize, sim.state.tick])
+  }, [agentIds, worldSize, sim.state.tick])
 
   useEffect(() => {
     const v = viewportRef.current
     if (!v) return
-    v.worldWidth = sim.state.config.worldSize
-    v.worldHeight = sim.state.config.worldSize
-  }, [sim.state.config.worldSize])
+    v.worldWidth = worldSize
+    v.worldHeight = worldSize
+  }, [worldSize])
 
   return <div ref={hostRef} style={{ height: '100%', width: '100%', minHeight: 0 }} />
 }

@@ -326,7 +326,7 @@ export function FeedView() {
                 {item.text?.includes('[LLM]') && (
                   <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px dashed var(--border)' }}>
                     <div className="muted" style={{ fontSize: 11, marginBottom: 6 }}>
-                      LLM Generated Content 生成内容:
+                      LLM Generated Content:
                     </div>
                     {sim.state.feed
                       .filter((p) => p.tick === item.tick && p.authorId !== 0)
@@ -354,7 +354,7 @@ export function FeedView() {
                       ))}
                     {sim.state.feed.filter((p) => p.tick === item.tick && p.authorId !== 0).length === 0 && (
                       <div className="muted" style={{ fontSize: 11, fontStyle: 'italic' }}>
-                        该 tick 无生成内容
+                        No generated content for this tick
                       </div>
                     )}
                   </div>

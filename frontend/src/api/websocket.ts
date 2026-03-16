@@ -1,4 +1,7 @@
 import type { WebSocketEventListener, WebSocketMessage } from '../types';
+import { createLogger } from '../utils/logger';
+
+const logger = createLogger('WebSocket');
 
 function resolveWebSocketUrl(): string {
   const explicitWsUrl = import.meta.env.VITE_WS_URL?.trim();
@@ -44,7 +47,7 @@ export class WebSocketClient {
     this.ws = new WebSocket(wsUrl);
 
     this.ws.onopen = () => {
-      console.log('[WebSocket] connected:', wsUrl);
+      logger.info('Connected:', wsUrl);
       this.reconnectDelay = 1000;
 
       while (this.messageQueue.length > 0) {
@@ -59,7 +62,7 @@ export class WebSocketClient {
       try {
         const message = JSON.parse(event.data) as WebSocketMessage;
         if (!message || typeof message !== 'object' || !('type' in message)) {
-          console.warn('[WebSocket] received invalid message format:', event.data);
+          logger.warn('Received invalid message format:', event.data);
           return;
         }
 
@@ -71,16 +74,16 @@ export class WebSocketClient {
           try {
             listener(message);
           } catch (error) {
-            console.error('[WebSocket] listener error:', error);
+            logger.error('Listener error:', error);
           }
         });
       } catch (error) {
-        console.error('[WebSocket] failed to parse message:', error, 'data:', event.data);
+        logger.error('Failed to parse message:', error, 'data:', event.data);
       }
     };
 
     this.ws.onclose = () => {
-      console.log('[WebSocket] disconnected');
+      logger.info('Disconnected');
       this.ws = null;
       if (!this.isIntentionalClose) {
         this.scheduleReconnect();
@@ -88,7 +91,7 @@ export class WebSocketClient {
     };
 
     this.ws.onerror = (error) => {
-      console.error('[WebSocket] error:', error);
+      logger.error('WebSocket error:', error);
     };
   }
 
@@ -100,7 +103,7 @@ export class WebSocketClient {
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       this.reconnectDelay = Math.min(this.reconnectDelay * 2, this.maxReconnectDelay);
-      console.log(`[WebSocket] reconnecting in ${this.reconnectDelay}ms...`);
+      logger.debug(`Reconnecting in ${this.reconnectDelay}ms...`);
       this.connect();
     }, this.reconnectDelay);
   }

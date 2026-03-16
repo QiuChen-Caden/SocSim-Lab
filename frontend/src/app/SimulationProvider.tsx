@@ -4,6 +4,9 @@ import type { SimulationState, Action, TimelineEvent, AgentState } from '../type
 import { initialState, reducer } from './state';
 import { id, limitSetSize } from '../utils';
 import api, { wsClient } from '../api';
+import { createLogger } from '../utils/logger';
+
+const logger = createLogger('SimulationProvider');
 
 const USE_REAL_API = import.meta.env.VITE_USE_REAL_API === 'true';
 const USE_WEBSOCKET = import.meta.env.VITE_USE_WEBSOCKET !== 'false';
@@ -172,7 +175,7 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
 
         hydratedRef.current = true;
       } catch (err) {
-        console.error('[SimulationProvider] Backend hydrate failed, will retry:', err);
+        logger.error('Backend hydrate failed, will retry:', err);
       } finally {
         hydrateInFlightRef.current = false;
       }
@@ -231,7 +234,7 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
             dispatch({ type: 'push_log', level: log.level, tick: log.tick, agentId: log.agentId, text: log.text });
           });
       } catch (err) {
-        console.warn('[SimulationProvider] Stream sync failed:', err);
+        logger.warn('Stream sync failed:', err);
       }
     };
 
@@ -344,7 +347,7 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
               await api.simulation.pause();
             }
           } catch (err) {
-            console.error('[SimulationProvider] Failed to toggle run state:', err);
+            logger.error('Failed to toggle run state:', err);
             dispatch({ type: 'toggle_run' });
           }
         }
@@ -355,7 +358,7 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
           try {
             await api.simulation.setSpeed(speed);
           } catch (err) {
-            console.error('[SimulationProvider] Failed to set speed:', err);
+            logger.error('Failed to set speed:', err);
           }
         }
       },
@@ -365,7 +368,7 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
           try {
             await api.simulation.setTick(tick);
           } catch (err) {
-            console.error('[SimulationProvider] Failed to set tick:', err);
+            logger.error('Failed to set tick:', err);
           }
         }
       },
@@ -383,7 +386,7 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
             dispatch({ type: 'apply_intervention', tick: state.tick, command, targetAgentId });
             return true;
           } catch (err) {
-            console.error('[SimulationProvider] Failed to apply intervention:', err);
+            logger.error('Failed to apply intervention:', err);
             dispatch({
               type: 'push_log',
               level: 'error',
@@ -415,7 +418,7 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
           try {
             await api.state.patch({ config: configPatch });
           } catch (err) {
-            console.error('[SimulationProvider] Failed to persist config:', err);
+            logger.error('Failed to persist config:', err);
           }
         }, 500);
       },

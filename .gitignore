@@ -26,6 +26,10 @@ dist-ssr
 # Windows specific
 nul
 
+# Environment files (contains sensitive configuration)
+*.env
+!.env.example
+
 # Python
 __pycache__/
 *.py[cod]

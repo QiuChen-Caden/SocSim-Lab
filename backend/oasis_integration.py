@@ -685,7 +685,7 @@ class OasisSimulation:
         # Fallback: try to get from string representation
         try:
             return int(str(agent).split('Agent')[-1].split('(')[0].strip())
-        except:
+        except (ValueError, IndexError, AttributeError):
             return 0
 
     async def get_agents(self) -> list[Dict[str, Any]]:
@@ -767,7 +767,8 @@ class OasisSimulation:
                                 {"id": str(i), "text": str(m)[:200], "score": 1.0}
                                 for i, m in enumerate(memories)
                             ]
-                    except:
+                    except (AttributeError, TypeError):
+                        # Memory retrieval failed, skip this part
                         pass
 
             # Try to get agent state attributes
@@ -842,7 +843,7 @@ class OasisSimulation:
                             try:
                                 latency = (action.executed_at - action.created_at).total_seconds() * 1000
                                 action_dict["latencyMs"] = latency
-                            except:
+                            except (AttributeError, TypeError):
                                 action_dict["latencyMs"] = 0.0
                         else:
                             action_dict["id"] = str(uuid.uuid4())[:8]
@@ -866,7 +867,8 @@ class OasisSimulation:
                                 "text": mem_text,
                                 "score": 1.0 - (i * 0.1)  # Decay score for older memories
                             })
-                    except:
+                    except (AttributeError, TypeError):
+                        # Memory retrieval failed, skip this part
                         pass
                 elif hasattr(memory, 'memories'):
                     memories = list(memory.memories.values())[:5]

@@ -1,0 +1,30 @@
+{
+  "name": "socsim-lab",
+  "version": "3.2.0",
+  "description": "Social Simulation Visualization Platform - Agent-Based Modeling with Real Twitter Personas",
+  "scripts": {
+    "install:all": "npm run install:backend && npm run install:frontend",
+    "install:backend": "cd backend && python -m venv venv && venv\\Scripts\\pip install -r requirements.txt",
+    "install:frontend": "cd frontend && npm install",
+    "start": "npm run start:all",
+    "start:all": "start cmd /k \"cd backend && venv\\Scripts\\python.exe main.py\" && timeout /t 3 >nul && start cmd /k \"cd frontend && npm run dev\"",
+    "start:backend": "cd backend && venv\\Scripts\\python.exe main.py",
+    "start:frontend": "cd frontend && npm run dev",
+    "dev": "concurrently \"npm run start:backend\" \"npm run start:frontend\" --names \"Backend,Frontend\" --prefix-colors \"blue,green\"",
+    "build": "cd frontend && npm run build",
+    "preview": "cd frontend && npm run preview"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "keywords": [
+    "abm",
+    "social-simulation",
+    "visualization",
+    "react",
+    "fastapi",
+    "pixijs"
+  ],
+  "author": "SocSim Lab Team",
+  "license": "MIT"
+}

@@ -1,137 +1,101 @@
 @echo off
-REM SocSim Lab - Startup Script
-REM This script starts both backend and frontend servers
+REM SocSim Lab v3.2 - 一键启动脚本 (Windows)
+REM 此脚本会自动安装依赖并启动后端和前端服务
 
-setlocal
+setlocal enabledelayedexpansion
 
-REM Set project root directory
+REM 设置项目根目录
 set "ROOT=%~dp0"
 set "BACKEND_DIR=%ROOT%backend"
 set "FRONTEND_DIR=%ROOT%frontend"
 set "DATA_DIR=%ROOT%data"
-set "OASIS_DB_PATH=%DATA_DIR%\oasis_frontend.db"
-
-REM Set log file path to fixed location
-set "BACKEND_LOG_FILE=C:\Users\Lenovo\Desktop\SocSim-Lab\backend_launch_check.err.log"
-
-REM Set conda environment name
-set "CONDA_ENV=socsim-env"
 
 echo ========================================
-echo SocSim Lab - Starting Development Environment
+echo  SocSim Lab v3.2 - 启动中...
 echo ========================================
 echo.
-echo Backend Log File: %BACKEND_LOG_FILE%
-echo.
 
-REM Check if Conda is installed
-where conda >nul 2>&1
-if errorlevel 1 (
-    echo ERROR: conda not found in PATH.
-    echo Please install Anaconda/Miniconda and retry.
-    pause
-    exit /b 1
-)
-
-REM Check if Node.js is installed
-node --version >nul 2>&1
-if errorlevel 1 (
-    echo ERROR: Node.js is not installed or not in PATH.
-    echo Please install Node.js 18+ to run frontend.
-    pause
-    exit /b 1
-)
-
-echo Step 1: Preparing Backend Environment...
-echo ========================================
+REM ========================================
+REM Step 1: 检查并准备后端环境
+REM ========================================
+echo [1/4] 检查后端环境...
 cd /d "%BACKEND_DIR%"
+
+REM 创建数据目录
 if not exist "%DATA_DIR%" mkdir "%DATA_DIR%"
 
-REM Create conda env if it doesn't exist
-if not exist "%BACKEND_DIR%\env_setup_done.flag" (
-    echo Creating Conda env %CONDA_ENV% (Python 3.11)...
-    conda run -n %CONDA_ENV% python --version >nul 2>&1
+REM 检查虚拟环境
+if not exist "venv\Scripts\python.exe" (
+    echo     - 创建 Python 虚拟环境...
+    python -m venv venv
     if errorlevel 1 (
-        conda create -n %CONDA_ENV% python=3.11 -y
-        if errorlevel 1 (
-            echo ERROR: failed to create Conda environment %CONDA_ENV%.
-            pause
-            exit /b 1
-        )
-    )
-
-    REM Check if oasis-main submodule exists
-    if not exist "%ROOT%oasis-main" (
-        echo WARNING: oasis-main submodule not found at %ROOT%oasis-main
-        echo Please ensure oasis-main is present in the project root.
-        echo.
-        echo Skipping oasis-main installation...
-    ) else (
-        REM Install oasis-main if oasis-main exists
-        echo Installing OASIS (oasis-main)...
-        conda run -n %CONDA_ENV% python -m pip install -e ..\oasis-main
-    )
-
-    REM Mark conda setup as done
-    echo env_setup_done > "%BACKEND_DIR%\env_setup_done.flag"
-)
-if exist "%BACKEND_DIR%\env_setup_done.flag" (
-    conda run -n %CONDA_ENV% python --version >nul 2>&1
-    if errorlevel 1 (
-        echo Conda env %CONDA_ENV% missing, recreating...
-        conda create -n %CONDA_ENV% python=3.11 -y
-        if errorlevel 1 (
-            echo ERROR: failed to create Conda environment %CONDA_ENV%.
-            pause
-            exit /b 1
-        )
+        echo     [X] Python 虚拟环境创建失败，请确保 Python 3.10+ 已安装
+        pause
+        exit /b 1
     )
 )
 
-REM Install backend dependencies if needed
-echo Installing backend dependencies...
-conda run -n %CONDA_ENV% python -m pip install -r requirements.txt
-
-REM Import personas if database doesn't exist
-if not exist "%OASIS_DB_PATH%" (
-    echo.
-    echo Importing Twitter personas...
-    conda run -n %CONDA_ENV% python import_personas.py --file ../twitter_personas_20260123_222506.json
+REM 检查依赖
+venv\Scripts\python.exe -c "import fastapi" 2>nul
+if errorlevel 1 (
+    echo     - 安装后端依赖...
+    venv\Scripts\pip.exe install -r requirements.txt -q
 )
 
-echo.
-echo Step 2: Starting Backend Server...
-echo ========================================
-echo.
-echo Backend will log to: %BACKEND_LOG_FILE%
-echo.
-echo Starting backend server on http://localhost:8000
+echo     [v] 后端环境就绪
 echo.
 
-REM Start backend in new window
-start "SocSim Backend" cmd /k conda run -n %CONDA_ENV% python main.py
-
+REM ========================================
+REM Step 2: 检查并准备前端环境
+REM ========================================
+echo [2/4] 检查前端环境...
 cd /d "%FRONTEND_DIR%"
 
-REM Step 3: Starting Frontend Server...
-echo ========================================
-echo.
-
-REM Check frontend dependencies
-if not exist "node_modules\.vite" (
-    echo Installing frontend dependencies...
-    call npm.cmd install
+if not exist "node_modules\" (
+    echo     - 安装前端依赖...
+    call npm install --silent
 )
 
-REM Start frontend
-echo Starting frontend server on http://localhost:5173
-call npm.cmd run dev
+echo     [v] 前端环境就绪
+echo.
 
-cd ..
+REM ========================================
+REM Step 3: 启动后端服务
+REM ========================================
+echo [3/4] 启动后端服务 (FastAPI)...
+cd /d "%BACKEND_DIR%"
+start "SocSim Backend" cmd /k "title SocSim Backend && venv\Scripts\python.exe main.py"
+
+REM 等待后端启动
+echo     - 等待后端服务就绪...
+timeout /t 5 /nobreak >nul
+
+REM 检查后端是否启动成功
+curl -s http://localhost:8000/docs >nul 2>&1
+if errorlevel 1 (
+    echo     [!] 后端可能仍在初始化中，继续启动前端...
+) else (
+    echo     [v] 后端服务已启动
+)
+echo.
+
+REM ========================================
+REM Step 4: 启动前端服务
+REM ========================================
+echo [4/4] 启动前端服务 (Vite)...
+cd /d "%FRONTEND_DIR%"
+start "SocSim Frontend" cmd /k "title SocSim Frontend && npm run dev"
+
 echo.
 echo ========================================
-echo Development environment stopped
+echo  SocSim Lab 已启动!
 echo ========================================
+echo   后端 API:    http://localhost:8000
+echo   API 文档:    http://localhost:8000/docs
+echo   前端界面:    http://localhost:5173
+echo ========================================
+echo.
+echo 提示: 关闭此窗口不会停止服务
+echo       请在各自的服务窗口中按 Ctrl+C 停止服务
+echo.
 pause
-
-endlocal

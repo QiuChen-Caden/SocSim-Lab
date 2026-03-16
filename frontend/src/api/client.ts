@@ -1,5 +1,5 @@
 /**
- * API 客户端基础配置
+ * API Client Configuration
  */
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
@@ -9,7 +9,7 @@ export class ApiError extends Error {
   detail: string;
 
   constructor(status: number, detail: string) {
-    super(`API 错误 ${status}: ${detail}`);
+    super(`API Error ${status}: ${detail}`);
     this.name = 'ApiError';
     this.status = status;
     this.detail = detail;
@@ -36,8 +36,8 @@ export async function request<T>(
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: '未知错误' }));
-    throw new ApiError(response.status, error.error || error.detail || '请求失败');
+    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+    throw new ApiError(response.status, error.error || error.detail || 'Request failed');
   }
 
   return response.json();

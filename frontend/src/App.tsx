@@ -6,12 +6,14 @@ import { WorkbenchView } from './views/Workbench';
 import { WorldView } from './views/WorldView';
 import { FeedView } from './views/FeedView';
 import { ReplayView } from './views/ReplayView';
+import { PlaygroundView } from './views/Playground';
+import { DashboardView } from './views/DashboardView';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 
 const USE_REAL_API = import.meta.env.VITE_USE_REAL_API === 'true';
 
-type ViewKey = 'workbench' | 'world' | 'feed' | 'replay';
+type ViewKey = 'playground' | 'workbench' | 'world' | 'feed' | 'replay' | 'dashboard';
 
 interface NavigationContextType {
   activeView: ViewKey;
@@ -43,7 +45,7 @@ function Shell() {
   if (!USE_REAL_API) useMockEngine();
   const sim = useSim();
   const { theme, toggleTheme } = useTheme();
-  const [active, setActive] = useState<ViewKey>('world');
+  const [active, setActive] = useState<ViewKey>('playground');
 
   // Initialize theme
   useEffect(() => {
@@ -97,6 +99,12 @@ function Shell() {
 
             <nav className="tabs">
               <button
+                className={`tab ${active === 'playground' ? 'tab--active' : ''}`}
+                onClick={() => setActive('playground')}
+              >
+                Playground 交互乐园
+              </button>
+              <button
                 className={`tab ${active === 'workbench' ? 'tab--active' : ''}`}
                 onClick={() => setActive('workbench')}
               >
@@ -120,15 +128,23 @@ function Shell() {
               >
                 System Log 系统日志
               </button>
+              <button
+                className={`tab ${active === 'dashboard' ? 'tab--active' : ''}`}
+                onClick={() => setActive('dashboard')}
+              >
+                Dashboard 态势大屏
+              </button>
             </nav>
           </header>
 
           <main className="content">
             <ErrorBoundary title={`${active.charAt(0).toUpperCase() + active.slice(1)} View Error`}>
+              {active === 'playground' && <PlaygroundView />}
               {active === 'workbench' && <WorkbenchView />}
               {active === 'world' && <WorldView />}
               {active === 'feed' && <FeedView />}
               {active === 'replay' && <ReplayView />}
+              {active === 'dashboard' && <DashboardView />}
             </ErrorBoundary>
           </main>
         </div>

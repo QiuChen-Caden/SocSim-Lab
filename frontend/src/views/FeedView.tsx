@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react';
 import { useSim } from '../app/SimulationProvider';
 import { useFeedStats } from '../hooks';
 import { Panel, Pill } from '../components/ui';
-import type { StreamItem, SortMode, StreamFilter } from '../types/feed';
+import type { StreamItem } from '../types';
+import type { SortMode, StreamFilter } from '../types/feed';
 import ReactECharts from 'echarts-for-react';
 
 const EXAMPLE_POSTS = [
@@ -15,6 +16,8 @@ export function FeedView() {
   const [mode] = useState<SortMode>('time');
   const [streamFilter, setStreamFilter] = useState<StreamFilter>('all');
   const [localSelectedId] = useState<number>(sim.state.selectedAgentId ?? 1);
+  const [searchText, setSearchText] = useState('');
+  const [agentFilter, setAgentFilter] = useState('');
 
   const selected = localSelectedId;
 
@@ -81,12 +84,32 @@ export function FeedView() {
   }, [stream]);
 
   const filteredStream = useMemo(() => {
-    if (streamFilter === 'all') return stream;
+    let result = stream;
+
+    // Kind filter
     if (streamFilter === 'llm') {
-      return stream.filter((item) => item.kind === 'log' && item.text?.includes('[LLM]'));
+      result = result.filter((item) => item.kind === 'log' && item.text?.includes('[LLM]'));
+    } else if (streamFilter !== 'all') {
+      result = result.filter((item) => item.kind === streamFilter);
     }
-    return stream.filter((item) => item.kind === streamFilter);
-  }, [stream, streamFilter]);
+
+    // Agent ID filter
+    const agentId = agentFilter.trim() ? parseInt(agentFilter.trim(), 10) : NaN;
+    if (!isNaN(agentId)) {
+      result = result.filter((item) => item.authorId === agentId || item.agentId === agentId);
+    }
+
+    // Text search
+    const q = searchText.trim().toLowerCase();
+    if (q) {
+      result = result.filter((item) => {
+        const haystack = [item.content, item.title, item.text, item.authorName].filter(Boolean).join(' ').toLowerCase();
+        return haystack.includes(q);
+      });
+    }
+
+    return result;
+  }, [stream, streamFilter, searchText, agentFilter]);
 
   const activityChartOption = useMemo(() => {
     const maxTick = sim.state.tick || 1;
@@ -227,22 +250,40 @@ export function FeedView() {
       <Panel
         title="Feed 信息流"
         actions={
-          <div className="row" style={{ marginTop: 8, gap: 8, flexWrap: 'wrap' }}>
-            <FilterButton active={streamFilter === 'all'} onClick={() => setStreamFilter('all')} count={stream.length}>
-              全部
-            </FilterButton>
-            <FilterButton active={streamFilter === 'post'} onClick={() => setStreamFilter('post')} count={streamCounts.post}>
-              帖子 Posts
-            </FilterButton>
-            <FilterButton active={streamFilter === 'event'} onClick={() => setStreamFilter('event')} count={streamCounts.event}>
-              事件 Events
-            </FilterButton>
-            <FilterButton active={streamFilter === 'log'} onClick={() => setStreamFilter('log')} count={streamCounts.log}>
-              日志 Logs
-            </FilterButton>
-            <FilterButton active={streamFilter === 'llm'} onClick={() => setStreamFilter('llm')} count={streamCounts.llm}>
-              LLM
-            </FilterButton>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+            <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+              <FilterButton active={streamFilter === 'all'} onClick={() => setStreamFilter('all')} count={stream.length}>
+                全部
+              </FilterButton>
+              <FilterButton active={streamFilter === 'post'} onClick={() => setStreamFilter('post')} count={streamCounts.post}>
+                帖子 Posts
+              </FilterButton>
+              <FilterButton active={streamFilter === 'event'} onClick={() => setStreamFilter('event')} count={streamCounts.event}>
+                事件 Events
+              </FilterButton>
+              <FilterButton active={streamFilter === 'log'} onClick={() => setStreamFilter('log')} count={streamCounts.log}>
+                日志 Logs
+              </FilterButton>
+              <FilterButton active={streamFilter === 'llm'} onClick={() => setStreamFilter('llm')} count={streamCounts.llm}>
+                LLM
+              </FilterButton>
+            </div>
+            <div className="row" style={{ gap: 8 }}>
+              <input
+                type="text"
+                placeholder="Search 搜索..."
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                style={{ flex: 1, padding: '4px 8px', fontSize: 12, background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border)', borderRadius: 4, color: 'inherit' }}
+              />
+              <input
+                type="text"
+                placeholder="Agent ID"
+                value={agentFilter}
+                onChange={(e) => setAgentFilter(e.target.value)}
+                style={{ width: 80, padding: '4px 8px', fontSize: 12, background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border)', borderRadius: 4, color: 'inherit' }}
+              />
+            </div>
           </div>
         }
       >
@@ -271,13 +312,18 @@ export function FeedView() {
         ) : (
           filteredStream.slice(0, 400).map((item) => {
             if (item.kind === 'post') {
+              const emo = item.emotion ?? 0;
+              const emotionColor = emo > 0.1 ? '#22c55e' : emo < -0.1 ? '#ef4444' : '#666';
               return (
-                <div key={item.id} className="post">
+                <div key={item.id} className="post" style={{ borderLeft: `3px solid ${emotionColor}` }}>
                   <div className="post__meta">
                     <div>
                       <b>{item.authorName}</b> <span className="muted">- agent_{item.authorId}</span>
                     </div>
-                    <div>
+                    <div className="row" style={{ gap: 6, alignItems: 'center' }}>
+                      <span style={{ fontSize: 11, color: emotionColor }}>
+                        {emo > 0 ? '+' : ''}{emo.toFixed(2)}
+                      </span>
                       <Pill variant="ok" style={{ marginRight: 6 }}>
                         Post
                       </Pill>

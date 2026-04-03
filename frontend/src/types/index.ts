@@ -244,6 +244,7 @@ export interface SimulationState {
   snapshots: SimulationSnapshot[];
   currentSnapshotId: string | null;
   systemLogs: SystemLog[];
+  playground: PlaygroundState;
 }
 
 // ============ API 相关类型 ============
@@ -262,6 +263,39 @@ export interface Bookmark {
   tick: number;
   note: string;
   createdAt: number;
+}
+
+// ============ Playground 类型 ============
+export type TownZoneId = 'plaza' | 'cafe' | 'park' | 'office' | 'library' | 'market';
+
+export interface TownZone {
+  id: TownZoneId;
+  label: string;
+  labelCn: string;
+  bounds: { x: number; y: number; w: number; h: number };
+  color: number;
+}
+
+export interface ChatBubble {
+  id: string;
+  agentId: number;
+  text: string;
+  tick: number;
+  expiresAtTick: number;
+  targetAgentId?: number;
+}
+
+export interface CauseChainAnimation {
+  sourceAgentId: number;
+  affectedAgentIds: number[];
+  startTick: number;
+  waveDurationTicks: number;
+}
+
+export interface PlaygroundState {
+  agentZones: Record<number, TownZoneId>;
+  chatBubbles: ChatBubble[];
+  causeChain: CauseChainAnimation | null;
 }
 
 // ============ 视图相关类型 ============
@@ -304,6 +338,7 @@ export interface StreamItem {
   // Event fields
   eventType?: string;
   title?: string;
+  agentId?: number;
   // Log fields
   level?: LogLevel;
   text?: string;
@@ -343,4 +378,9 @@ export type Action =
   | { type: 'delete_snapshot'; snapshotId: string }
   | { type: 'clear_snapshots' }
   | { type: 'push_system_log'; log: SystemLog }
-  | { type: 'set_system_logs'; logs: SystemLog[] };
+  | { type: 'set_system_logs'; logs: SystemLog[] }
+  | { type: 'set_agent_zone'; agentId: number; zone: TownZoneId }
+  | { type: 'push_chat_bubble'; bubble: ChatBubble }
+  | { type: 'clear_expired_bubbles'; currentTick: number }
+  | { type: 'init_user_agent' }
+  | { type: 'set_cause_chain'; chain: CauseChainAnimation | null };

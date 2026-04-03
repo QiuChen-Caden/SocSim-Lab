@@ -1,6 +1,6 @@
 import { Application, FederatedPointerEvent, Graphics, Sprite, Texture } from 'pixi.js'
 import { Viewport } from 'pixi-viewport'
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useSim } from '../app/SimulationProvider'
 import { clamp, hash01, posAtTick } from '../app/util'
 

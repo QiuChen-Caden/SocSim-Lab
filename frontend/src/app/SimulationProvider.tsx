@@ -1,6 +1,6 @@
 import { createContext, useContext, useMemo, useReducer, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
-import type { SimulationState, Action, TimelineEvent, AgentState } from '../types';
+import type { SimulationState, Action, TimelineEvent, AgentState, TownZoneId } from '../types';
 import { initialState, reducer } from './state';
 import { id, limitSetSize } from '../utils';
 import api, { wsClient } from '../api';
@@ -25,9 +25,9 @@ const STREAM_LIMITS = {
 };
 
 type SimActions = {
-  toggleRun: () => void;
-  setSpeed: (speed: number) => void;
-  setTick: (tick: number) => void;
+  toggleRun: () => Promise<void>;
+  setSpeed: (speed: number) => Promise<void>;
+  setTick: (tick: number) => Promise<void>;
   selectAgent: (agentId: number | null) => void;
   logInfo: (text: string, agentId?: number) => void;
   logOk: (text: string, agentId?: number) => void;
@@ -42,6 +42,14 @@ type SimActions = {
   loadSnapshot: (snapshotId: string) => void;
   deleteSnapshot: (snapshotId: string) => void;
   clearSnapshots: () => void;
+  // Playground actions
+  initUserAgent: () => void;
+  setAgentZone: (agentId: number, zone: TownZoneId) => void;
+  pushChatBubble: (agentId: number, text: string, targetAgentId?: number) => void;
+  clearExpiredBubbles: (currentTick: number) => void;
+  triggerCauseChain: (sourceAgentId: number) => void;
+  userPost: (content: string) => void;
+  userReply: (targetUsername: string, content: string) => void;
 };
 
 type SimContextValue = {
@@ -58,6 +66,8 @@ function makeEvent(input: { tick: number; type: string; title: string; agentId?:
 
 export function SimulationProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, undefined, initialState);
+  const stateRef = useRef(state);
+  stateRef.current = state;
   const hydratedRef = useRef(false);
   const hydrateInFlightRef = useRef(false);
   const configPatchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -428,6 +438,101 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
       loadSnapshot: (snapshotId) => dispatch({ type: 'load_snapshot', snapshotId }),
       deleteSnapshot: (snapshotId) => dispatch({ type: 'delete_snapshot', snapshotId }),
       clearSnapshots: () => dispatch({ type: 'clear_snapshots' }),
+      // Playground actions
+      initUserAgent: () => dispatch({ type: 'init_user_agent' }),
+      setAgentZone: (agentId, zone) => dispatch({ type: 'set_agent_zone', agentId, zone }),
+      pushChatBubble: (agentId, text, targetAgentId?) => {
+        const bubble = {
+          id: id('bub'),
+          agentId,
+          text,
+          tick: state.tick,
+          expiresAtTick: state.tick + 80,
+          targetAgentId,
+        };
+        dispatch({ type: 'push_chat_bubble', bubble });
+      },
+      clearExpiredBubbles: (currentTick) => dispatch({ type: 'clear_expired_bubbles', currentTick }),
+      triggerCauseChain: (sourceAgentId) => {
+        const s = stateRef.current;
+        const sourceZone = s.playground.agentZones[sourceAgentId];
+        const sourceGroup = s.agents[sourceAgentId]?.profile.group;
+        const affected: number[] = [];
+        for (const [idStr, zone] of Object.entries(s.playground.agentZones)) {
+          const aid = Number(idStr);
+          if (aid === sourceAgentId) continue;
+          if (zone === sourceZone) affected.push(aid);
+          else if (s.agents[aid]?.profile.group === sourceGroup && affected.length < 10) affected.push(aid);
+        }
+        dispatch({
+          type: 'set_cause_chain',
+          chain: { sourceAgentId, affectedAgentIds: affected.slice(0, 12), startTick: s.tick, waveDurationTicks: 60 },
+        });
+        setTimeout(() => dispatch({ type: 'set_cause_chain', chain: null }), 6000);
+      },
+      userPost: (content) => {
+        dispatch({ type: 'push_feed', tick: state.tick, authorId: 31, content, emotion: 0.5 });
+        const bubble = {
+          id: id('bub'),
+          agentId: 31,
+          text: content,
+          tick: state.tick,
+          expiresAtTick: state.tick + 80,
+        };
+        dispatch({ type: 'push_chat_bubble', bubble });
+        // Trigger reactions from nearby agents
+        const userZone = state.playground.agentZones[31];
+        const nearby = Object.entries(state.playground.agentZones)
+          .filter(([idStr, z]) => z === userZone && Number(idStr) !== 31)
+          .map(([idStr]) => Number(idStr));
+        const reactors = nearby.slice(0, 3);
+        const reactions = ['Interesting!', 'I see your point.', 'Hmm, let me think...', 'Agreed!', 'Not sure about that.'];
+        reactors.forEach((aid, i) => {
+          setTimeout(() => {
+            const s = stateRef.current;
+            const text = reactions[Math.floor(Math.random() * reactions.length)];
+            const rb = { id: id('bub'), agentId: aid, text, tick: s.tick, expiresAtTick: s.tick + 80, targetAgentId: 31 };
+            dispatch({ type: 'push_chat_bubble', bubble: rb });
+            dispatch({ type: 'mutate_agent_state', agentId: aid, patch: { mood: (s.agents[aid]?.state.mood ?? 0) + 0.05 } });
+          }, (i + 1) * 800);
+        });
+        // Trigger cause chain
+        setTimeout(() => {
+          const s = stateRef.current;
+          const sourceZone = s.playground.agentZones[31];
+          const affected = Object.entries(s.playground.agentZones)
+            .filter(([idStr, z]) => z === sourceZone && Number(idStr) !== 31)
+            .map(([idStr]) => Number(idStr));
+          dispatch({
+            type: 'set_cause_chain',
+            chain: { sourceAgentId: 31, affectedAgentIds: affected.slice(0, 8), startTick: s.tick, waveDurationTicks: 60 },
+          });
+          setTimeout(() => dispatch({ type: 'set_cause_chain', chain: null }), 6000);
+        }, 300);
+      },
+      userReply: (targetUsername, content) => {
+        const targetAgent = Object.values(state.agents).find(a => a.profile.identity.username === targetUsername);
+        const targetId = targetAgent?.profile.id;
+        dispatch({ type: 'push_feed', tick: state.tick, authorId: 31, content: `@${targetUsername} ${content}`, emotion: 0.5 });
+        const bubble = {
+          id: id('bub'),
+          agentId: 31,
+          text: `@${targetUsername} ${content}`,
+          tick: state.tick,
+          expiresAtTick: state.tick + 80,
+          targetAgentId: targetId,
+        };
+        dispatch({ type: 'push_chat_bubble', bubble });
+        if (targetId) {
+          setTimeout(() => {
+            const s = stateRef.current;
+            const reactions = ['Thanks for the reply!', 'I appreciate that.', 'Good point!', 'Let me consider...'];
+            const text = reactions[Math.floor(Math.random() * reactions.length)];
+            const rb = { id: id('bub'), agentId: targetId, text, tick: s.tick, expiresAtTick: s.tick + 80, targetAgentId: 31 };
+            dispatch({ type: 'push_chat_bubble', bubble: rb });
+          }, 1200);
+        }
+      },
     }),
     [state]
   );

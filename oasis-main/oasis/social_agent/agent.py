@@ -108,6 +108,7 @@ class SocialAgent(ChatAgent):
             model=model,
             scheduling_strategy='random_model',
             tools=all_tools,
+            prune_tool_calls_from_memory=True,
         )
         self.max_iteration = max_iteration
         self.interview_record = interview_record

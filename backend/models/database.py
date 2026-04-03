@@ -407,22 +407,38 @@ def save_agent_profile(profile: AgentProfile) -> None:
         """, (profile.id, profile.group, 0.0, 0.0))
 
 
-def get_feed_posts(limit: int = 100, offset: int = 0) -> list[FeedPost]:
+def get_feed_posts(limit: int = 100, offset: int = 0, agent_id: int | None = None) -> list[FeedPost]:
     """从数据库获取信息流帖子。"""
     with get_db_cursor() as cursor:
-        cursor.execute("""
-            SELECT
-                p.post_id, p.content, p.created_at, p.num_likes,
-                u.user_id, u.user_name, u.name,
-                pe.emotion,
-                COALESCE(pt.tick, 0) as tick
-            FROM post p
-            LEFT JOIN user u ON p.user_id = u.user_id
-            LEFT JOIN post_emotion pe ON p.post_id = pe.post_id
-            LEFT JOIN post_tick pt ON p.post_id = pt.post_id
-            ORDER BY COALESCE(pt.tick, p.rowid) DESC
-            LIMIT ? OFFSET ?
-        """, (limit, offset))
+        if agent_id is not None:
+            cursor.execute("""
+                SELECT
+                    p.post_id, p.content, p.created_at, p.num_likes,
+                    u.user_id, u.user_name, u.name,
+                    pe.emotion,
+                    COALESCE(pt.tick, 0) as tick
+                FROM post p
+                LEFT JOIN user u ON p.user_id = u.user_id
+                LEFT JOIN post_emotion pe ON p.post_id = pe.post_id
+                LEFT JOIN post_tick pt ON p.post_id = pt.post_id
+                WHERE p.user_id = ?
+                ORDER BY COALESCE(pt.tick, p.rowid) DESC
+                LIMIT ? OFFSET ?
+            """, (agent_id, limit, offset))
+        else:
+            cursor.execute("""
+                SELECT
+                    p.post_id, p.content, p.created_at, p.num_likes,
+                    u.user_id, u.user_name, u.name,
+                    pe.emotion,
+                    COALESCE(pt.tick, 0) as tick
+                FROM post p
+                LEFT JOIN user u ON p.user_id = u.user_id
+                LEFT JOIN post_emotion pe ON p.post_id = pe.post_id
+                LEFT JOIN post_tick pt ON p.post_id = pt.post_id
+                ORDER BY COALESCE(pt.tick, p.rowid) DESC
+                LIMIT ? OFFSET ?
+            """, (limit, offset))
         rows = cursor.fetchall()
         posts = []
         for row in rows:
@@ -749,14 +765,22 @@ def save_timeline_event(event: TimelineEvent) -> None:
               event.title, json.dumps(event.payload) if event.payload else None, created_at))
 
 
-def get_timeline_events(limit: int = 100, offset: int = 0) -> list[TimelineEvent]:
+def get_timeline_events(limit: int = 100, offset: int = 0, agent_id: int | None = None) -> list[TimelineEvent]:
     """Get timeline events from the database."""
     with get_db_cursor() as cursor:
-        cursor.execute("""
-            SELECT * FROM timeline_event
-            ORDER BY tick DESC, created_at DESC
-            LIMIT ? OFFSET ?
-        """, (limit, offset))
+        if agent_id is not None:
+            cursor.execute("""
+                SELECT * FROM timeline_event
+                WHERE agent_id = ?
+                ORDER BY tick DESC, created_at DESC
+                LIMIT ? OFFSET ?
+            """, (agent_id, limit, offset))
+        else:
+            cursor.execute("""
+                SELECT * FROM timeline_event
+                ORDER BY tick DESC, created_at DESC
+                LIMIT ? OFFSET ?
+            """, (limit, offset))
         rows = cursor.fetchall()
 
         return [
@@ -784,14 +808,22 @@ def save_log_line(log: LogLine) -> None:
         """, (log.id, log.tick, log.agent_id, log.level.value, log.text, created_at))
 
 
-def get_log_lines(limit: int = 100) -> list[LogLine]:
+def get_log_lines(limit: int = 100, offset: int = 0, agent_id: int | None = None) -> list[LogLine]:
     """Get log lines from the database."""
     with get_db_cursor() as cursor:
-        cursor.execute("""
-            SELECT * FROM simulation_log
-            ORDER BY tick DESC, created_at DESC
-            LIMIT ?
-        """, (limit,))
+        if agent_id is not None:
+            cursor.execute("""
+                SELECT * FROM simulation_log
+                WHERE agent_id = ?
+                ORDER BY tick DESC, created_at DESC
+                LIMIT ? OFFSET ?
+            """, (agent_id, limit, offset))
+        else:
+            cursor.execute("""
+                SELECT * FROM simulation_log
+                ORDER BY tick DESC, created_at DESC
+                LIMIT ? OFFSET ?
+            """, (limit, offset))
         rows = cursor.fetchall()
 
         return [

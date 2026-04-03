@@ -1,6 +1,7 @@
-import type { SimulationState, Action } from '../types';
+import type { SimulationState, Action, TownZoneId } from '../types';
 import { makeAgentProfile, makeGroupProfiles, twitterPersonaToAgentProfile, getTwitterPersonaIds } from './persona';
 import { clamp, hash01, id } from '../utils';
+import { createUserAgentProfile } from '../views/Playground/userAgent';
 
 const USE_REAL_API = import.meta.env.VITE_USE_REAL_API === 'true';
 
@@ -131,6 +132,11 @@ export function initialState(): SimulationState {
     snapshots: [],
     currentSnapshotId: null,
     systemLogs: [],
+    playground: {
+      agentZones: {},
+      chatBubbles: [],
+      causeChain: null,
+    },
   };
 }
 
@@ -178,11 +184,28 @@ export function reducer(state: SimulationState, action: Action): SimulationState
       const updatedAgents: SimulationState['agents'] = {};
       for (const [idStr, agent] of Object.entries(state.agents)) {
         const id = Number(idStr);
+
+        // Don't overwrite the user agent's mood (player-controlled)
+        if (id === 31) {
+          updatedAgents[id] = agent;
+          continue;
+        }
+
         const baseMood = clamp(hash01(state.config.seed + id * 3) * 2 - 1, -1, 1);
         const baseStance = clamp(hash01(state.config.seed + id * 5) * 2 - 1, -1, 1);
         const baseResources = 100 + Math.floor(hash01(state.config.seed + id * 9) * 900);
 
-        const mood = clamp(baseMood + Math.sin(next / 20 + id) * 0.3, -1, 1);
+        // Deterministic mood for current tick
+        const deterministicMood = clamp(baseMood + Math.sin(next / 20 + id) * 0.3, -1, 1);
+        // Deterministic mood for previous tick (to detect manual patches)
+        const prevDeterministicMood = clamp(baseMood + Math.sin(state.tick / 20 + id) * 0.3, -1, 1);
+        // If current mood differs from what deterministic would give for current tick,
+        // there's a manual offset — carry it forward
+        const moodDelta = agent.state.mood - prevDeterministicMood;
+        const mood = Math.abs(moodDelta) > 0.001
+          ? clamp(deterministicMood + moodDelta, -1, 1)
+          : deterministicMood;
+
         const lastAction = mood > 0.4 ? 'celebrate' : mood < -0.4 ? 'complain' : 'observe';
 
         updatedAgents[id] = {
@@ -380,6 +403,65 @@ export function reducer(state: SimulationState, action: Action): SimulationState
     }
     case 'set_system_logs': {
       return { ...state, systemLogs: action.logs };
+    }
+    case 'init_user_agent': {
+      if (state.agents[31]) return state;
+      const groups = state.groups;
+      const profile = createUserAgentProfile(groups);
+      return {
+        ...state,
+        agents: {
+          ...state.agents,
+          [31]: {
+            profile,
+            state: {
+              mood: 0.5,
+              stance: 0,
+              resources: 500,
+              lastAction: 'idle',
+              evidence: { memoryHits: [], reasoningSummary: '', toolCalls: [] },
+            },
+          },
+        },
+        playground: {
+          ...state.playground,
+          agentZones: { ...state.playground.agentZones, [31]: 'plaza' as TownZoneId },
+        },
+      };
+    }
+    case 'set_agent_zone': {
+      return {
+        ...state,
+        playground: {
+          ...state.playground,
+          agentZones: { ...state.playground.agentZones, [action.agentId]: action.zone },
+        },
+      };
+    }
+    case 'push_chat_bubble': {
+      const bubbles = [...state.playground.chatBubbles, action.bubble];
+      return {
+        ...state,
+        playground: {
+          ...state.playground,
+          chatBubbles: bubbles.length > 50 ? bubbles.slice(bubbles.length - 50) : bubbles,
+        },
+      };
+    }
+    case 'clear_expired_bubbles': {
+      return {
+        ...state,
+        playground: {
+          ...state.playground,
+          chatBubbles: state.playground.chatBubbles.filter(b => b.expiresAtTick > action.currentTick),
+        },
+      };
+    }
+    case 'set_cause_chain': {
+      return {
+        ...state,
+        playground: { ...state.playground, causeChain: action.chain },
+      };
     }
     default:
       return state;

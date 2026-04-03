@@ -663,7 +663,7 @@ async def simulation_ticker():
                             tick_summary_event = TimelineEvent(
                                 id=str(uuid.uuid4()),
                                 tick=_sim_state.tick,
-                                type=EventType.INTERVENTION,  # Use INTERVENTION for system events
+                                type=EventType.ALERT,  # Use ALERT for system events
                                 title=f"[OASIS] Tick {_sim_state.tick}: {actions} actions, {active_agents} active agents",
                                 agent_id=None,
                                 payload={
@@ -694,20 +694,6 @@ async def simulation_ticker():
 
                                 # Convert action type to readable description
                                 action_desc = _get_action_description(action_type, action_args)
-
-                                # Create feed post as behavior log
-                                behavior_post = FeedPost(
-                                    id=str(uuid.uuid4()),
-                                    tick=_sim_state.tick,
-                                    author_id=agent_id,
-                                    author_name=agent_name,
-                                    emotion=0.0,
-                                    content=f"[Behavior] {action_desc}",
-                                    likes=0,
-                                )
-                                persisted_id = save_feed_post(behavior_post)
-                                behavior_post.id = persisted_id
-                                await ws_manager.emit_post_created(behavior_post.to_dict())
 
                                 # Emit fine-grained timeline event for each agent action.
                                 behavior_event = TimelineEvent(
@@ -756,19 +742,6 @@ async def simulation_ticker():
                                 )
                                 save_log_line(llm_log)
                                 await ws_manager.emit_log_added(llm_log.to_dict())
-
-                                llm_feed = FeedPost(
-                                    id=str(uuid.uuid4()),
-                                    tick=_sim_state.tick,
-                                    author_id=0,
-                                    author_name="LLM Engine",
-                                    emotion=0.0,
-                                    content=f"[LLM][{log_level_raw}] {message}",
-                                    likes=0,
-                                )
-                                persisted_id = save_feed_post(llm_feed)
-                                llm_feed.id = persisted_id
-                                await ws_manager.emit_post_created(llm_feed.to_dict())
                                 print(f"[LLM] {message}")
                             # Also sync actual posts to feed database
                             try:
@@ -776,6 +749,8 @@ async def simulation_ticker():
                                 print(f"[Ticker] Fetched {len(new_posts)} posts from OASIS")
                                 from models import save_oasis_feed_post
 
+                                sync_new = 0
+                                sync_skipped = 0
                                 for post_data in new_posts:
                                     # Create FeedPost from OASIS post data
                                     feed_post = FeedPost(
@@ -791,27 +766,22 @@ async def simulation_ticker():
                                     saved = save_oasis_feed_post(int(post_data["id"]), feed_post)
                                     if saved:
                                         await ws_manager.emit_post_created(feed_post.to_dict())
-                                        sync_log = LogLine(
-                                            id=str(uuid.uuid4()),
-                                            tick=_sim_state.tick,
-                                            level=LogLevel.INFO,
-                                            text=f"[Ticker] Synced OASIS post {post_data['id']} to feed",
-                                            agent_id=feed_post.author_id,
-                                        )
-                                        save_log_line(sync_log)
-                                        await ws_manager.emit_log_added(sync_log.to_dict())
-                                        print(f"[Ticker] Synced OASIS post {post_data['id']} to feed")
+                                        sync_new += 1
                                     else:
-                                        skip_log = LogLine(
-                                            id=str(uuid.uuid4()),
-                                            tick=_sim_state.tick,
-                                            level=LogLevel.INFO,
-                                            text=f"[Ticker] OASIS post {post_data['id']} already synced, skipping",
-                                            agent_id=feed_post.author_id,
-                                        )
-                                        save_log_line(skip_log)
-                                        await ws_manager.emit_log_added(skip_log.to_dict())
-                                        print(f"[Ticker] OASIS post {post_data['id']} already synced, skipping")
+                                        sync_skipped += 1
+
+                                # Emit a single summary log instead of per-post logs
+                                if sync_new > 0:
+                                    summary_log = LogLine(
+                                        id=str(uuid.uuid4()),
+                                        tick=_sim_state.tick,
+                                        level=LogLevel.INFO,
+                                        text=f"[Ticker] OASIS sync: {sync_new} new, {sync_skipped} skipped",
+                                        agent_id=None,
+                                    )
+                                    save_log_line(summary_log)
+                                    await ws_manager.emit_log_added(summary_log.to_dict())
+                                    print(f"[Ticker] OASIS sync: {sync_new} new, {sync_skipped} skipped")
                             except Exception as e:
                                 sync_err_log = LogLine(
                                     id=str(uuid.uuid4()),
@@ -1149,6 +1119,7 @@ async def get_feed(
     limit: int = Query(50, description="Maximum number of posts to return"),
     offset: int = Query(0, description="Number of posts to skip"),
     sort: str = Query("time", description="Sort order: time, emotion, likes"),
+    agent_id: Optional[int] = Query(None, description="Filter by agent ID"),
 ):
     """
     Get feed posts.
@@ -1157,8 +1128,9 @@ async def get_feed(
     - limit: Maximum number of posts to return
     - offset: Number of posts to skip
     - sort: Sort order (time, emotion, likes)
+    - agent_id: Filter by agent ID
     """
-    posts = get_feed_posts(limit=limit * 2, offset=offset)  # Get more for sorting
+    posts = get_feed_posts(limit=limit * 2, offset=offset, agent_id=agent_id)  # Get more for sorting
 
     if sort == "emotion":
         posts.sort(key=lambda p: abs(p.emotion), reverse=True)
@@ -1427,9 +1399,10 @@ async def get_simulation_runtime_metrics():
 async def get_events(
     limit: int = Query(100, description="Maximum number of events to return"),
     offset: int = Query(0, description="Number of events to skip"),
+    agent_id: Optional[int] = Query(None, description="Filter by agent ID"),
 ):
     """Get timeline events."""
-    events = get_timeline_events(limit=limit, offset=offset)
+    events = get_timeline_events(limit=limit, offset=offset, agent_id=agent_id)
 
     return [
         TimelineEventResponse(
@@ -1483,12 +1456,10 @@ async def get_logs(
     limit: int = Query(100, description="Maximum number of logs to return"),
     offset: int = Query(0, description="Number of logs to skip"),
     level: Optional[str] = Query(None, description="Filter by log level"),
+    agent_id: Optional[int] = Query(None, description="Filter by agent ID"),
 ):
     """Get simulation logs."""
-    logs = get_log_lines(limit=limit)
-    # Apply offset by slicing (since get_log_lines doesn't support offset parameter)
-    if offset > 0:
-        logs = logs[offset:]
+    logs = get_log_lines(limit=limit, offset=offset, agent_id=agent_id)
 
     if level:
         logs = [log for log in logs if log.level.value == level]
